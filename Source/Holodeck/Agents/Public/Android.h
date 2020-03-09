@@ -29,7 +29,10 @@ public:
 
 	const static FName Joints[];
 	const static FName BoneNames[];
+	const static FName ModifiedBoneLists[];
+	const static FName ModifiedBoneParentLists[];
 	const static int NumBones;
+	const static int ModifiedNumBones;
 
 	/**
 	* Called when the game starts.
@@ -77,7 +80,7 @@ public:
 	void* GetRawActionBuffer() const override {
 		return (void*)CommandArray;
 	}
-
+		
 private:
 	bool bCollisionsAreVisible;
 
@@ -86,6 +89,12 @@ private:
 	* Applies torques for that tick on each joint with a force/direction
 	* corresponding to the values in the command array
 	*/
-	void ApplyTorques();
+	void ApplyTorques(double DeltaTime);
+
+	void applyTorqueByName(FName b_name, FName b_p_name, double p_gain, double d_gain);
+	FVector getJointAngularVelocity(FName b_name, FName b_p_name);
 	float CommandArray[TOTAL_DOF];
+
+	TMap<FName, FTransform> body_transform_init;
+	FQuat prev_rot;
 };
