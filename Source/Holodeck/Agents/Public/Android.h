@@ -6,6 +6,7 @@
 
 #include "GameFramework/Pawn.h"
 #include "HolodeckAgent.h"
+#include "Animation/AnimSequence.h"
 
 #include "Android.generated.h"
 
@@ -73,6 +74,9 @@ public:
 	UPROPERTY(BlueprintReadWrite, Category = AndroidMesh)
 		USkeletalMeshComponent* SkeletalMesh;
 
+	UAnimSequence* IdleAnim;
+	USkeleton* skeleton;
+
 	unsigned int GetRawActionSizeInBytes() const override {
 		return TOTAL_DOF * sizeof(float);
 	}
@@ -97,4 +101,5 @@ private:
 
 	TMap<FName, FTransform> body_transform_init;
 	FQuat prev_rot;
+	double cur_time;
 };

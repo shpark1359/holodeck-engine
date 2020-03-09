@@ -17,7 +17,7 @@ def test_example():
 
     env = HolodeckEnvironment(agent_definitions=[agent], start_world=False)
 
-    command = [100, 4,  0, 0]
+    command = [100, 4, 0, 0]
 
     for i in range(100):
         print(i)
