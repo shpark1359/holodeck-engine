@@ -30,9 +30,11 @@ public:
 
 	const static FName Joints[];
 	const static FName BoneNames[];
+	const static FName BodyInstanceNames[];
 	const static FName ModifiedBoneLists[];
 	const static FName ModifiedBoneParentLists[];
 	const static int NumBones;
+	const static int NumBodyinstances;
 	const static int ModifiedNumBones;
 
 	/**

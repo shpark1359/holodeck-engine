@@ -76,9 +76,14 @@ void AAndroid::InitializeAgent() {
 	 
 	UE_LOG(LogTemp, Warning, TEXT("AAndroid::InitializeAgent()"));
 
-	body_transform_init.Add(FName("pelvis"), SkeletalMesh->GetBoneTransform(SkeletalMesh->GetBoneIndex(FName("pelvis"))));
-	for (int i = 0; i < ModifiedNumBones; i++) {
-		body_transform_init.Add(ModifiedBoneLists[i], SkeletalMesh->GetBodyInstance(ModifiedBoneLists[i])->GetUnrealWorldTransform());
+	//body_transform_init.Add(FName("pelvis"), SkeletalMesh->GetBoneTransform(SkeletalMesh->GetBoneIndex(FName("pelvis"))));
+	SkeletalMesh->SetPhysicsBlendWeight(0.0);
+	SkeletalMesh->SetAllBodiesPhysicsBlendWeight(0.0);
+	for (int i = 0; i < NumBodyinstances; i++) {
+		auto name = BodyInstanceNames[i];
+		//SkeletalMesh->GetBodyInstance(name)->PhysicsBlendWeight = 0.0;
+		//SkeletalMesh->GetBodyInstance(name)->SetInstanceSimulatePhysics(false);
+		body_transform_init.Add(name, SkeletalMesh->GetBodyInstance(name)->GetUnrealWorldTransform());
 		//body_transform_init.Add(ModifiedBoneLists[i], SkeletalMesh->GetBoneTransform(SkeletalMesh->GetBoneIndex(ModifiedBoneLists[i])));
 	}
 
@@ -87,8 +92,8 @@ void AAndroid::InitializeAgent() {
 }
 
 void AAndroid::Tick(float DeltaTime) {
-	Super::Tick(DeltaTime);
 	ApplyTorques(DeltaTime);
+	Super::Tick(DeltaTime);
 	cur_time += DeltaTime;
 }
 
@@ -139,7 +144,8 @@ void AAndroid::applyTorqueByName(FName b_name, FName b_p_name, double p_gain, do
 
 	FVector torque = -1.0 * (delta*(p_gain) + d_delta*d_gain);
 
-	SkeletalMesh->AddTorqueInRadians(torque, b_name, true);
+	SkeletalMesh->GetBodyInstance(b_name)->SetBodyTransform(b_transform_init, ETeleportType::ResetPhysics, false);
+	//SkeletalMesh->AddTorqueInRadians(torque, b_name, true);
 }
 
 void AAndroid::ApplyTorques(double DeltaTime) {
@@ -149,10 +155,23 @@ void AAndroid::ApplyTorques(double DeltaTime) {
 	double d_gain = CommandArray[1] / DeltaTime;
 
 	//UE_LOG(LogTemp, Warning, TEXT("pd gain: %f, %f"), p_gain, d_gain);
-	
+
+	for (int i = 0; i < NumBodyinstances; i++) {
+		FTransform bt = body_transform_init[BodyInstanceNames[i]];
+		if (i == 0) {
+			printTransform(bt);
+			//bt.SetTranslation(FVector(0, 1000*cur_time, 0) + bt.GetTranslation());
+		}
+
+		SkeletalMesh->GetBodyInstance(BodyInstanceNames[i])->SetBodyTransform(bt, ETeleportType::ResetPhysics, true);
+		SkeletalMesh->GetBodyInstance(BodyInstanceNames[i])->SetAngularVelocityInRadians(FVector(0, 0, 0), false);
+		SkeletalMesh->GetBodyInstance(BodyInstanceNames[i])->SetLinearVelocity(FVector(0, 0, 0), false);
+		SkeletalMesh->GetBodyInstance(BodyInstanceNames[i])->UpdateInstanceSimulatePhysics();
+	}
+		/*
 	for (int i = 0; i < ModifiedNumBones; i++) {
 		applyTorqueByName(ModifiedBoneLists[i], ModifiedBoneParentLists[i], p_gain, d_gain);
-	}
+	}*/
 	
 	//FTransform tf = SkeletalMesh->GetBoneTransform(SkeletalMesh->GetBoneIndex(FName("spine_01")));
 	//Cast<UPoseableMeshComponent>(SkeletalMesh)->SetBoneTransformByName(FName("spine_01"), tf, EBoneSpaces::WorldSpace);
@@ -286,6 +305,62 @@ const FName AAndroid::BoneNames[] = {
 
 // If you change this number, change the corresponding number in RelativeSkeletalPositionSensor.__init__
 const int AAndroid::NumBones = 60;
+
+// Don't forget to update AAndroid::NumBones after changing this array!
+const FName AAndroid::BodyInstanceNames[] = {
+	FName(TEXT("pelvis")),
+	FName(TEXT("spine_01")),
+	FName(TEXT("spine_02")),
+	FName(TEXT("upperarm_l")),
+	FName(TEXT("lowerarm_l")),
+	FName(TEXT("hand_l")),
+	FName(TEXT("index_01_l")),
+	FName(TEXT("index_02_l")),
+	FName(TEXT("index_03_l")),
+	FName(TEXT("middle_01_l")),
+	FName(TEXT("middle_02_l")),
+	FName(TEXT("middle_03_l")),
+	FName(TEXT("pinky_01_l")),
+	FName(TEXT("pinky_02_l")),
+	FName(TEXT("pinky_03_l")),
+	FName(TEXT("ring_01_l")),
+	FName(TEXT("ring_02_l")),
+	FName(TEXT("ring_03_l")),
+	FName(TEXT("thumb_01_l")),
+	FName(TEXT("thumb_02_l")),
+	FName(TEXT("thumb_03_l")),
+	FName(TEXT("upperarm_r")),
+	FName(TEXT("lowerarm_r")),
+	FName(TEXT("hand_r")),
+	FName(TEXT("index_01_r")),
+	FName(TEXT("index_02_r")),
+	FName(TEXT("index_03_r")),
+	FName(TEXT("middle_01_r")),
+	FName(TEXT("middle_02_r")),
+	FName(TEXT("middle_03_r")),
+	FName(TEXT("pinky_01_r")),
+	FName(TEXT("pinky_02_r")),
+	FName(TEXT("pinky_03_r")),
+	FName(TEXT("ring_01_r")),
+	FName(TEXT("ring_02_r")),
+	FName(TEXT("ring_03_r")),
+	FName(TEXT("thumb_01_r")),
+	FName(TEXT("thumb_02_r")),
+	FName(TEXT("thumb_03_r")),
+	FName(TEXT("neck_01")),
+	FName(TEXT("head")),
+	FName(TEXT("thigh_l")),
+	FName(TEXT("calf_l")),
+	FName(TEXT("foot_l")),
+	FName(TEXT("ball_l")),
+	FName(TEXT("thigh_r")),
+	FName(TEXT("calf_r")),
+	FName(TEXT("foot_r")),
+	FName(TEXT("ball_r")),
+};
+
+// If you change this number, change the corresponding number in RelativeSkeletalPositionSensor.__init__
+const int AAndroid::NumBodyinstances = 49;
 
 const FName AAndroid::ModifiedBoneLists[] = {
 	FName(TEXT("spine_01")),
