@@ -36,10 +36,7 @@ FVector QuatToRoatationVector(FQuat& quat) {
 		UE_LOG(LogTemp, Warning, TEXT("QuatToRoatationVector: Rotation angle error!!"));
 	}
 
-	if (angle > PI) {
-		axis = axis * -1.0;
-		angle = angle - 2.0 * PI;
-	}
+	angle = std::fmod(angle + PI, 2 * PI) - PI;
 
 	return axis * angle;
 }
@@ -77,10 +74,11 @@ void AAndroid::InitializeAgent() {
 	UE_LOG(LogTemp, Warning, TEXT("AAndroid::InitializeAgent()"));
 
 	//body_transform_init.Add(FName("pelvis"), SkeletalMesh->GetBoneTransform(SkeletalMesh->GetBoneIndex(FName("pelvis"))));
-	SkeletalMesh->SetPhysicsBlendWeight(0.0);
-	SkeletalMesh->SetAllBodiesPhysicsBlendWeight(0.0);
+	//SkeletalMesh->SetPhysicsBlendWeight(1.0);
+	//SkeletalMesh->SetAllBodiesPhysicsBlendWeight(1.0);
 	for (int i = 0; i < NumBodyinstances; i++) {
 		auto name = BodyInstanceNames[i];
+		UE_LOG(LogTemp, Warning, TEXT("AAndroid::InitializeAgent() pb weight : %f"), SkeletalMesh->GetBodyInstance(name)->PhysicsBlendWeight);
 		//SkeletalMesh->GetBodyInstance(name)->PhysicsBlendWeight = 0.0;
 		//SkeletalMesh->GetBodyInstance(name)->SetInstanceSimulatePhysics(false);
 		body_transform_init.Add(name, SkeletalMesh->GetBodyInstance(name)->GetUnrealWorldTransform());
@@ -92,8 +90,8 @@ void AAndroid::InitializeAgent() {
 }
 
 void AAndroid::Tick(float DeltaTime) {
-	ApplyTorques(DeltaTime);
 	Super::Tick(DeltaTime);
+	ApplyTorques(DeltaTime);
 	cur_time += DeltaTime;
 }
 
@@ -119,32 +117,57 @@ FVector AAndroid::getJointAngularVelocity(FName b_name, FName b_p_name) {
 
 }
 
+FTransform AAndroid::GetAnimBoneTransform(FName b_name, float time) {
+	time = fmod(time, (IdleAnim->GetRawNumberOfFrames() / IdleAnim->GetFrameRate()));
+	//UE_LOG(LogTemp, Warning, TEXT("time: %f"), time);
+	FTransform res;
+	res.SetIdentity();
+	FName cur_body_name = b_name;
+	while(true){
+		if (cur_body_name == NAME_None) {
+			break;
+		}
+		FTransform tf;
+		IdleAnim->GetBoneTransform(tf, SkeletalMesh->GetBoneIndex(cur_body_name), time, true);
+		res = res * tf;
+		cur_body_name = SkeletalMesh->GetParentBone(cur_body_name);
+	}
+	return res;
+}
 
 void AAndroid::applyTorqueByName(FName b_name, FName b_p_name, double p_gain, double d_gain) {
 	int b_index = SkeletalMesh->GetBoneIndex(b_name);
 	int b_p_index = SkeletalMesh->GetBoneIndex(b_p_name);
-
-	FTransform b_transform_init = body_transform_init[b_name];
-	FTransform b_p_transform_init = body_transform_init[b_p_name];
-
-	//FTransform b_transform_init, b_p_transform_init;
-	//IdleAnim->GetBoneTransform(b_transform_init, b_index, cur_time, true);
-	//IdleAnim->GetBoneTransform(b_p_transform_init, b_p_index, cur_time, true);
+	
+	//FTransform b_transform_init = body_transform_init[b_name];
+	//FTransform b_p_transform_init = body_transform_init[b_p_name];
+	FTransform b_transform_init = GetAnimBoneTransform(b_name, cur_time);
+	FTransform b_p_transform_init = GetAnimBoneTransform(b_p_name, cur_time);
 
 	FQuat delta_init(b_p_transform_init.GetRotation().Inverse()*b_transform_init.GetRotation());
 
 	FTransform b_transform = SkeletalMesh->GetBoneTransform(b_index);
 	FTransform b_p_transform = SkeletalMesh->GetBoneTransform(b_p_index);
 
-	FQuat delta_quat(b_transform.GetRotation()*delta_init.Inverse()*b_p_transform.GetRotation().Inverse());
-	FVector delta = QuatToRoatationVector(delta_quat);
+	FQuat delta_quat(b_p_transform.GetRotation().Inverse()*b_transform.GetRotation()*delta_init.Inverse());
+	FVector delta = b_p_transform.GetRotation().RotateVector(QuatToRoatationVector(delta_quat));
 
 
 	FVector d_delta = getJointAngularVelocity(b_name, b_p_name);
 
 	FVector torque = -1.0 * (delta*(p_gain) + d_delta*d_gain);
 
-	SkeletalMesh->GetBodyInstance(b_name)->SetBodyTransform(b_transform_init, ETeleportType::ResetPhysics, false);
+	if (b_name == FName("spine_01")) {
+		UE_LOG(LogTemp, Warning, TEXT("time: %f"), cur_time);
+		printVector(torque);
+		printVector(delta);
+		printVector(d_delta);
+		UE_LOG(LogTemp, Warning, TEXT("pd gain: %f, %f"), p_gain, d_gain);
+	}
+
+	//torques[b_p_name] -= torque;
+	torques[b_name] += torque;
+	//SkeletalMesh->AddTorqueInRadians(-torque, b_p_name, true);
 	//SkeletalMesh->AddTorqueInRadians(torque, b_name, true);
 }
 
@@ -156,25 +179,38 @@ void AAndroid::ApplyTorques(double DeltaTime) {
 
 	//UE_LOG(LogTemp, Warning, TEXT("pd gain: %f, %f"), p_gain, d_gain);
 
+	/*
+	if (cur_time == 0) {
+		SkeletalMesh->PlayAnimation(IdleAnim, true);
+	}
+	
+	
 	for (int i = 0; i < NumBodyinstances; i++) {
-		FTransform bt = body_transform_init[BodyInstanceNames[i]];
-		if (i == 0) {
-			printTransform(bt);
-			//bt.SetTranslation(FVector(0, 1000*cur_time, 0) + bt.GetTranslation());
-		}
+		//FTransform bt = body_transform_init[BodyInstanceNames[i]];
+		//FTransform bt = GetAnimBoneTransform(BodyInstanceNames[i], cur_time);
+		//bt.SetTranslation(bt.GetTranslation() + FVector(0, 0, 100));
 
-		SkeletalMesh->GetBodyInstance(BodyInstanceNames[i])->SetBodyTransform(bt, ETeleportType::ResetPhysics, true);
+		//SkeletalMesh->GetBodyInstance(BodyInstanceNames[i])->SetBodyTransform(bt, ETeleportType::ResetPhysics, true);
 		SkeletalMesh->GetBodyInstance(BodyInstanceNames[i])->SetAngularVelocityInRadians(FVector(0, 0, 0), false);
 		SkeletalMesh->GetBodyInstance(BodyInstanceNames[i])->SetLinearVelocity(FVector(0, 0, 0), false);
-		SkeletalMesh->GetBodyInstance(BodyInstanceNames[i])->UpdateInstanceSimulatePhysics();
 	}
-		/*
+	*/
+	
+	torques.Reset();
+	torques.Add(FName("pelvis"), FVector(0.0, 0.0, 0.0));
+	for (int i = 0; i < ModifiedNumBones; i++) {
+		torques.Add(ModifiedBoneLists[i], FVector(0.0, 0.0, 0.0));
+	}
 	for (int i = 0; i < ModifiedNumBones; i++) {
 		applyTorqueByName(ModifiedBoneLists[i], ModifiedBoneParentLists[i], p_gain, d_gain);
-	}*/
+	}
+
+	UE_LOG(LogTemp, Warning, TEXT("==========================="));
+	for (auto& elem : torques) {
+		printVector(elem.Value);
+		SkeletalMesh->AddTorqueInRadians(elem.Value, elem.Key, true);
+	}
 	
-	//FTransform tf = SkeletalMesh->GetBoneTransform(SkeletalMesh->GetBoneIndex(FName("spine_01")));
-	//Cast<UPoseableMeshComponent>(SkeletalMesh)->SetBoneTransformByName(FName("spine_01"), tf, EBoneSpaces::WorldSpace);
 
 }
 

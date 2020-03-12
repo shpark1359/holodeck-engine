@@ -44,5 +44,5 @@ public:
 	void SetConstantTimeDeltaBetweenTicks(float Delta);
 
 private:
-	float ConstantTimeDeltaBetweenTicks = 0.033;
+	float ConstantTimeDeltaBetweenTicks = 0.002;
 };

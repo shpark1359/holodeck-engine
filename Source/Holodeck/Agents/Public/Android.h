@@ -101,7 +101,10 @@ private:
 	FVector getJointAngularVelocity(FName b_name, FName b_p_name);
 	float CommandArray[TOTAL_DOF];
 
+	FTransform GetAnimBoneTransform(FName b_name, float time);
+
 	TMap<FName, FTransform> body_transform_init;
+	TMap<FName, FVector> torques;
 	FQuat prev_rot;
 	double cur_time;
 };
