@@ -46,12 +46,14 @@ void AAndroid::InitializeAgent() {
 		body_transform_init.Add(name, SkeletalMesh->GetBodyInstance(name)->GetUnrealWorldTransform());
 
 		if (this->GetName() == "AndroidBlueprint_C_1") {
+			root_offset = FVector(100, 0, 30);
 			SkeletalMesh->GetBodyInstance(name)->SetInstanceSimulatePhysics(false);
 		}
 		if (this->GetName() == "AndroidBlueprint_C_0") {
+			root_offset = FVector(-100, 0, 30);
 			SkeletalMesh->GetBodyInstance(name)->SetInstanceSimulatePhysics(true);
 			FTransform bt = GetAnimBoneTransform(name, 0);
-			bt.SetTranslation(bt.GetTranslation() + FVector(-100, 0, 30));
+			bt.SetTranslation(bt.GetTranslation() + root_offset);
 			SkeletalMesh->GetBodyInstance(name)->SetBodyTransform(bt, ETeleportType::ResetPhysics);
 			SkeletalMesh->GetBodyInstance(name)->SetAngularVelocityInRadians(FVector(0, 0, 0), false);
 			SkeletalMesh->GetBodyInstance(name)->SetLinearVelocity(FVector(0, 0, 0), false);
@@ -161,7 +163,7 @@ FTransform AAndroid::GetAnimBoneTransformWithRoot(FName b_name) {
 }
 FTransform AAndroid::GetAnimBoneTransformWithRoot(FName b_name, float time) {
 	FTransform tf = GetAnimBoneTransform(b_name, time);
-	tf.SetTranslation(tf.GetTranslation() + FVector(0, 200 * time, 0));
+	tf.SetTranslation(tf.GetTranslation() + FVector(0, 200 * time, 0) + root_offset);
 	return tf;
 }
 

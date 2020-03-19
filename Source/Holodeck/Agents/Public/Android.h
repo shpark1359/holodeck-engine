@@ -123,4 +123,6 @@ public:
 	float cur_time;
 	float time_step;
 
+	FVector root_offset;
+
 };

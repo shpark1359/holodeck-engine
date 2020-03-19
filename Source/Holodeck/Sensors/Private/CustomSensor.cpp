@@ -83,50 +83,68 @@ void UCustomSensor::GetState() {
 }
 
 void UCustomSensor::GetReward() {
+	float sig_p = 0.5;
+	float sig_v = 1.0;
+	float sig_com = 0.2;
+	float sig_ee = 0.2;
+
 	// p reward
 	float rew_p = 0;
 	for (int i = 0; i < this->NumJoints; i++) {
 		FName b_name = AAndroid::ModifiedBoneLists[i];
 		FVector angle = this->Parent->getJointAngle(b_name);
 		FVector target_angle = this->Parent->getReferenceJointAngle(b_name);
-		rew_p += QuatToRotationVector(RotationVectorToQuat(angle).Inverse()*RotationVectorToQuat(target_angle)).Size();
+		rew_p += QuatToRotationVector(RotationVectorToQuat(angle).Inverse()*RotationVectorToQuat(target_angle)).SizeSquared();
 	}
-	rew_p /= this->NumJoints;
+	rew_p /= (this->NumJoints * 3);
+	rew_p = exp(-rew_p / (sig_p * sig_p));
 
 	// v reward
+
+	UE_LOG(LogTemp, Warning, TEXT("=========================="));
 	float rew_v = 0;
 	for (int i = 0; i < this->NumJoints; i++) {
 		FName b_name = AAndroid::ModifiedBoneLists[i];
 		FVector av = this->Parent->getJointAngularVelocity(b_name);
 		FVector target_av = this->Parent->getReferenceJointAngularVelocity(b_name);
-		rew_p += (av - target_av).Size();
+		rew_v += (av - target_av).SizeSquared();
+		printVector(av);
+		printVector(target_av);
+
 	}
-	rew_v /= this->NumJoints;
+	float rew_v_t = rew_v;
+	rew_v /= (this->NumJoints * 3);
+	rew_v = exp(-rew_v / (sig_v * sig_v));
 
 	// com reward
 	float rew_com = 0;
 	FTransform root_transform = this->SkeletalMeshComponent->GetBodyInstance(FName("pelvis"))->GetUnrealWorldTransform();
 	FTransform target_root_transform = this->Parent->GetAnimBoneTransformWithRoot(FName("pelvis"));
-	rew_com = (root_transform.GetTranslation() - target_root_transform.GetTranslation()).Size();
-	
+	rew_com = (root_transform.GetTranslation() - target_root_transform.GetTranslation()).SizeSquared();
+	rew_com /= 3;
+	rew_com = exp(-rew_com / (sig_com * sig_com));
+
 	// ee reward
 	float rew_ee = 0;
 	for (int i = 0; i < this->NumEEs; i++) {
 		FName b_name = this->EEList[i];
 		FTransform tf = this->SkeletalMeshComponent->GetBodyInstance(b_name)->GetUnrealWorldTransform();
 		FTransform target_tf = this->Parent->GetAnimBoneTransformWithRootNext(b_name);
-		rew_ee += (tf.GetTranslation() - target_tf.GetTranslation()).Size();
+		rew_ee += (tf.GetTranslation() - target_tf.GetTranslation()).SizeSquared();
 	}
-	rew_ee /= this->NumEEs;
+	rew_ee /= (this->NumEEs * 3);
+	rew_ee = exp(-rew_ee / (sig_ee*sig_ee));
 
 	float rew = rew_p * rew_v * rew_com * rew_ee;
 
 	float* FloatBuffer = static_cast<float*>(Buffer);
 	int index = this->StateSize;
-	FloatBuffer[0] = rew;
-	FloatBuffer[1] = rew_p;
-	FloatBuffer[2] = rew_v;
-	FloatBuffer[3] = rew_com;
-	FloatBuffer[4] = rew_ee;
+	FloatBuffer[index + 0] = rew;
+	FloatBuffer[index + 1] = rew_p;
+	FloatBuffer[index + 2] = rew_v;
+	FloatBuffer[index + 3] = rew_com;
+	FloatBuffer[index + 4] = rew_ee;
+
+	// UE_LOG(LogTemp, Warning, TEXT("GetReward : %f, %f, %f, %f, %f"), rew, rew_p, rew_v_t, rew_com, rew_ee);
 
 }
