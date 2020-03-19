@@ -17,6 +17,7 @@ void AHolodeckGameMode::Tick(float DeltaSeconds) {
 
 	// If !bHolodeckIsOn, then we never got instance or reset signal,
 	// so we don't need to check bOn here.
+
 	if (this->Instance)
 		this->Instance->Tick(DeltaSeconds);
 	if (this->CommandCenter)

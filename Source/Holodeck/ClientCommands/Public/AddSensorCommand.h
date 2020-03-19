@@ -12,6 +12,7 @@
 #include "RelativeSkeletalPositionSensor.h"
 #include "RGBCamera.h"
 #include "RotationSensor.h"
+#include "CustomSensor.h"
 #include "VelocitySensor.h"
 #include "WorldNumSensor.h"
 #include "ViewportCapture.h"

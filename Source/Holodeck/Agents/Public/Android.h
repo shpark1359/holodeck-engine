@@ -88,6 +88,7 @@ public:
 	}
 		
 private:
+public:
 	bool bCollisionsAreVisible;
 
 	/**
@@ -98,13 +99,28 @@ private:
 	void ApplyTorques(double DeltaTime);
 
 	void applyTorqueByName(FName b_name, FName b_p_name, double p_gain, double d_gain);
-	FVector getJointAngularVelocity(FName b_name, FName b_p_name);
+	FVector getJointAngle(FName b_name);
+	FVector getReferenceJointAngleNext(FName b_name);
+	FVector getReferenceJointAngle(FName b_name);
+	FVector getReferenceJointAngle(FName b_name, float time);
+
+	FVector getJointAngularVelocity(FName b_name);
+	FVector getReferenceJointAngularVelocity(FName b_name, float time);
+	FVector getReferenceJointAngularVelocity(FName b_name);
+
 	float CommandArray[TOTAL_DOF];
 
 	FTransform GetAnimBoneTransform(FName b_name, float time);
+	FTransform GetAnimBoneTransformWithRoot(FName b_name, float time);
+	FTransform GetAnimBoneTransformWithRoot(FName b_name);
+	FTransform GetAnimBoneTransformWithRootNext(FName b_name);
 
 	TMap<FName, FTransform> body_transform_init;
 	TMap<FName, FVector> torques;
+	TMap<FName, FVector> forces;
+	TMap<FName, FName> parents;
 	FQuat prev_rot;
-	double cur_time;
+	float cur_time;
+	float time_step;
+
 };
