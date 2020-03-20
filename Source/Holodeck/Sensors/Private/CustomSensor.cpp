@@ -101,15 +101,15 @@ void UCustomSensor::GetReward() {
 
 	// v reward
 
-	UE_LOG(LogTemp, Warning, TEXT("=========================="));
+	// UE_LOG(LogTemp, Warning, TEXT("=========================="));
 	float rew_v = 0;
 	for (int i = 0; i < this->NumJoints; i++) {
 		FName b_name = AAndroid::ModifiedBoneLists[i];
 		FVector av = this->Parent->getJointAngularVelocity(b_name);
 		FVector target_av = this->Parent->getReferenceJointAngularVelocity(b_name);
 		rew_v += (av - target_av).SizeSquared();
-		printVector(av);
-		printVector(target_av);
+		//printVector(av);
+		//printVector(target_av);
 
 	}
 	float rew_v_t = rew_v;
@@ -121,7 +121,7 @@ void UCustomSensor::GetReward() {
 	FTransform root_transform = this->SkeletalMeshComponent->GetBodyInstance(FName("pelvis"))->GetUnrealWorldTransform();
 	FTransform target_root_transform = this->Parent->GetAnimBoneTransformWithRoot(FName("pelvis"));
 	rew_com = (root_transform.GetTranslation() - target_root_transform.GetTranslation()).SizeSquared();
-	rew_com /= 3;
+	rew_com /= 30000;
 	rew_com = exp(-rew_com / (sig_com * sig_com));
 
 	// ee reward
@@ -132,7 +132,7 @@ void UCustomSensor::GetReward() {
 		FTransform target_tf = this->Parent->GetAnimBoneTransformWithRootNext(b_name);
 		rew_ee += (tf.GetTranslation() - target_tf.GetTranslation()).SizeSquared();
 	}
-	rew_ee /= (this->NumEEs * 3);
+	rew_ee /= (this->NumEEs * 30000);
 	rew_ee = exp(-rew_ee / (sig_ee*sig_ee));
 
 	float rew = rew_p * rew_v * rew_com * rew_ee;

@@ -25,7 +25,7 @@ def test_example():
 
     env = HolodeckEnvironment(agent_definitions=[agent, agent2], start_world=False)
 
-    command = [20000*500, 20*500, 0, 0]
+    command = [30000*100, 30*100, 0, 0]
 
     for i in range(100):
         env.reset()
