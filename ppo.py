@@ -18,6 +18,8 @@ from replaybuffer import Episode
 
 from util import RunningMeanStd
 from util import Plot
+import holodeck
+from holodeck.environments import *
 
 
 from IPython import embed
@@ -51,7 +53,7 @@ class Policy:
         self._layers = [tf.keras.layers.Dense(policyLayerSize,
                                               activation=activationFunction,
                                               dtype=tf.float32) for _ in
-                        range(policyLayerNumer)]
+                        range(policyLayerNumber)]
         self._layers.append(tf.keras.layers.Dense(action_size, dtype=tf.float32))
 
         self._mean = tf.keras.Sequential(self._layers)
@@ -139,9 +141,6 @@ class TrackingController:
     def initialize(self,
                    session_name="default_session",
                    num_slaves=8,
-                   trajectory_length=2000,
-                   origin=True,
-                   origin_offset=0,
                    use_evaluation=False
                    ):
 
@@ -167,9 +166,18 @@ class TrackingController:
 
         # initialize environment
         # TODO
-        self._env = environment(configuration_filepath, self._numSlaves)
-        self._stateSize = self._env.getStateSize()
-        self._actionSize = self._env.getActionSize()
+        agents = [holodeck.agents.AgentDefinition(agent_name="android" + str(i),
+                                                  agent_type=holodeck.agents.AndroidAgent,
+                                                  sensors=[holodeck.sensors.CustomSensor],
+                                                  starting_loc=(-1, 0, .3),
+                                                  starting_rot=(0, 0, 0),
+                                                  is_main_agent=True
+                                                  ) for i in range(self._numSlaves)]
+        self._env = HolodeckEnvironment(agent_definitions=agents, start_world=False)
+        self._stateSize = 18 * 3 + 5 * 3 + 5 * 3
+        self._rewardSize = 5
+        self._eoeSize  = 2
+        self._actionSize = 18 * 3
 
         # initialize networks
         self._policy = Policy(self._actionSize)
@@ -342,11 +350,28 @@ class TrackingController:
     def reset(self):
         return
 
+    def act(self, index, action):
+        self._env.act("android"+str(index), action)
+
+
+    def step(self):
+        res = self._env.tick()
+        states = []
+        rewards = []
+        eoes = []
+        for i in range(self._numSlaves):
+            s = res["android"+str(i)]["CustomSensor"]
+            states.append(s[:self._stateSize])
+            rewards.append(s[self._stateSize:self._stateSize+self._rewardSize])
+            eoes.append(s[self._stateSize+self._rewardSize:])
+
+        return states, rewards, eoes
+
     def runTraining(self, num_iteration=1):
         # create logging directory
-        if not os.path.exists("../output/"):
-            os.mkdir("../output/")
-        self._directory = '../output/' + self._sessionName + '/'
+        if not os.path.exists("output/"):
+            os.mkdir("output/")
+        self._directory = 'output/' + self._sessionName + '/'
 
         if not os.path.exists(self._directory):
             os.mkdir(self._directory)
@@ -377,8 +402,9 @@ class TrackingController:
 
                 # TODO : implement reset
                 for i in range(self._numSlaves):
-                    self._env.act(i, time)
-                next_states = self._env.tick()
+                    action = [1, random.random()]
+                    self.act(i, action)
+                next_states, _, _ = self.step()
 
                 actions = [None] * self._numSlaves
                 rewards = [None] * self._numSlaves
@@ -403,28 +429,33 @@ class TrackingController:
                     actions, logprobs = self._policy.getActionAndNeglogprob(states)
                     values = self._valueFunction.getValue(states)
 
-                    # TODO : change ations for reset
                     for j in range(self._numSlaves):
+                        action = [0, 0] + actions[j].numpy().tolist()
                         if resetRequired[j]:
-                            resetRequired[j] = False
-                        self._env.act(j, actions[j])
+                            action[0] = 1
+                            action[1] = random.random()
+
+                        self.act(j, action)
 
                     # run one step
-                    next_states = self._env.tick()
+                    next_states, r, e = self.step()
 
                     for j in range(self._numSlaves):
                         if terminated[j]:
                             continue
 
-                        is_terminal, nan_occur, end_of_trajectory = self._env.isNanAtTerminal(j)
+                        is_terminal = e[j][0] > 0.5 and True or False
+                        nan_occur = e[j][1] > 0.5 and True or False
                         # push tuples only if nan did not occur
                         if nan_occur is not True:
-                            r = self._env.getReward(j)
-                            rewards[j] = r[0]
-                            self._summary_reward_per_epoch += rewards[j]
-                            self._summary_reward_by_part_per_epoch.append(r)
-                            episodes[j].push(states[j], actions[j], rewards[j], values[j], logprobs[j])
-                            self._summary_num_transitions_per_iteration += 1
+                            if resetRequired[j]:
+                                resetRequired[j] = False
+                            else:
+                                rewards[j] = r[j][0]
+                                self._summary_reward_per_epoch += rewards[j]
+                                self._summary_reward_by_part_per_epoch.append(r[j])
+                                episodes[j].push(states[j], actions[j], rewards[j], values[j], logprobs[j])
+                                self._summary_num_transitions_per_iteration += 1
                         else:
                             nan_count += 1
 
@@ -443,15 +474,15 @@ class TrackingController:
                     # if local step exceeds t_p_i: wait for others to terminate
                     if self._summary_num_transitions_per_iteration >= self._transitionsPerIteration:
                         if all(t is True for t in terminated):
-                            print('{}/{} : {}/{}'.format(it + 1, num_iteration,
+                            print('\r{}/{} : {}/{}'.format(it + 1, num_iteration,
                                                          self._summary_num_transitions_per_iteration,
-                                                         self._transitionsPerIteration), end='\r')
+                                                         self._transitionsPerIteration), end='')
                             break
 
                     # print progress per 100 steps
                     if last_print + 100 < self._summary_num_transitions_per_iteration:
-                        print('{}/{} : {}/{}'.format(it + 1, num_iteration, self._summary_num_transitions_per_iteration,
-                                                     self._transitionsPerIteration), end='\r')
+                        print('\r{}/{} : {}/{}'.format(it + 1, num_iteration, self._summary_num_transitions_per_iteration,
+                                                     self._transitionsPerIteration), end='')
                         last_print = self._summary_num_transitions_per_iteration
 
                 self._summary_sim_time += time.time()
@@ -498,9 +529,9 @@ class TrackingController:
         # create logging directory
         self._directory = self._sessionName
 
-        if not os.path.exists("../output/"):
-            os.mkdir("../output/")
-        self._directory = '../output/' + self._sessionName + '/'
+        if not os.path.exists("output/"):
+            os.mkdir("output/")
+        self._directory = 'output/' + self._sessionName + '/'
         if not os.path.exists(self._directory):
             os.mkdir(self._directory)
 

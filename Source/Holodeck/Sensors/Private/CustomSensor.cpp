@@ -21,7 +21,8 @@ void UCustomSensor::InitializeSensor() {
 	this->StateSize = this->NumJoints * 3 + this->NumEEs * 3 + this->NumEEs * 3;
 
 	this->RewardSize = 5;
-	this->TotalSize = this->StateSize + this->RewardSize;
+	this->EOESize = 2;
+	this->TotalSize = this->StateSize + this->RewardSize + this->EOESize;
 
 	this->EEList.Add(FName("head"));
 	this->EEList.Add(FName("hand_l"));
@@ -43,6 +44,7 @@ int UCustomSensor::GetNumItems() {
 void UCustomSensor::TickSensorComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) {
 	this->GetState();
 	this->GetReward();
+	this->GetEOE();
 }
 
 void UCustomSensor::GetState() {
@@ -83,6 +85,11 @@ void UCustomSensor::GetState() {
 }
 
 void UCustomSensor::GetReward() {
+	float w_p = 0.35;
+	float w_v = 0.1;
+	float w_com = 0.3;
+	float w_ee = 0.25;
+
 	float sig_p = 0.5;
 	float sig_v = 1.0;
 	float sig_com = 0.2;
@@ -129,13 +136,14 @@ void UCustomSensor::GetReward() {
 	for (int i = 0; i < this->NumEEs; i++) {
 		FName b_name = this->EEList[i];
 		FTransform tf = this->SkeletalMeshComponent->GetBodyInstance(b_name)->GetUnrealWorldTransform();
-		FTransform target_tf = this->Parent->GetAnimBoneTransformWithRootNext(b_name);
+		FTransform target_tf = this->Parent->GetAnimBoneTransformWithRoot(b_name);
 		rew_ee += (tf.GetTranslation() - target_tf.GetTranslation()).SizeSquared();
 	}
 	rew_ee /= (this->NumEEs * 30000);
 	rew_ee = exp(-rew_ee / (sig_ee*sig_ee));
 
-	float rew = rew_p * rew_v * rew_com * rew_ee;
+	//float rew = rew_p * rew_v * rew_com * rew_ee;
+	float rew = w_p * rew_p + w_v * rew_v + w_com * rew_com + w_ee * rew_ee;
 
 	float* FloatBuffer = static_cast<float*>(Buffer);
 	int index = this->StateSize;
@@ -147,4 +155,23 @@ void UCustomSensor::GetReward() {
 
 	// UE_LOG(LogTemp, Warning, TEXT("GetReward : %f, %f, %f, %f, %f"), rew, rew_p, rew_v_t, rew_com, rew_ee);
 
+}
+
+void UCustomSensor::GetEOE() {
+	FTransform root_transform = this->SkeletalMeshComponent->GetBodyInstance(FName("pelvis"))->GetUnrealWorldTransform();
+	FTransform target_root_transform = this->Parent->GetAnimBoneTransformWithRoot(FName("pelvis"));
+	float root_diff = (root_transform.GetTranslation() - target_root_transform.GetTranslation()).Size();
+	float root_angle_diff = QuatToRotationVector(root_transform.GetRotation()*target_root_transform.GetRotation().Inverse()).Size();
+
+	float is_terminal = 0;
+	float is_nan = 0;
+	if (root_diff > 100)
+		is_terminal = 1;
+	if (root_angle_diff > 1.57)
+		is_terminal = 1;
+
+	float* FloatBuffer = static_cast<float*>(Buffer);
+	int index = this->StateSize + this->RewardSize;
+	FloatBuffer[index + 0] = is_terminal;
+	FloatBuffer[index + 1] = is_nan;
 }

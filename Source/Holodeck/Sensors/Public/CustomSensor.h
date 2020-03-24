@@ -37,10 +37,11 @@ private:
 	AAndroid* Parent;
 
 	int NumJoints, NumEEs;
-	int StateSize, RewardSize, TotalSize;
+	int StateSize, RewardSize, EOESize, TotalSize;
 
 	void GetState();
 	void GetReward();
+	void GetEOE();
 
 	TArray<FName> EEList;
 };

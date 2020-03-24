@@ -65,3 +65,6 @@ DerivedDataCache/*
 # Visual Studio Artifacts
 .vs/
 Content/HolodeckContent/Bots/HuntingSpider/*
+
+__pycache__
+output

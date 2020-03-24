@@ -96,9 +96,10 @@ public:
 	* Applies torques for that tick on each joint with a force/direction
 	* corresponding to the values in the command array
 	*/
+	void ResetAgent(float time);
 	void ApplyTorques(double DeltaTime);
 
-	void applyTorqueByName(FName b_name, FName b_p_name, double p_gain, double d_gain);
+	void applyTorqueByName(FName b_name, FName b_p_name, double p_gain, double d_gain, FVector action);
 	FVector getJointAngle(FName b_name);
 	FVector getReferenceJointAngleNext(FName b_name);
 	FVector getReferenceJointAngle(FName b_name);
@@ -122,6 +123,7 @@ public:
 	FQuat prev_rot;
 	float cur_time;
 	float time_step;
+	int character_index;
 
 	FVector root_offset;
 
