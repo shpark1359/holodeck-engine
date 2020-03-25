@@ -124,6 +124,7 @@ public:
 	float cur_time;
 	float time_step;
 	int character_index;
+	int step_count;
 
 	FVector root_offset;
 

@@ -1,5 +1,5 @@
 import os
-
+from pathlib import Path
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 import time
@@ -169,7 +169,7 @@ class TrackingController:
         agents = [holodeck.agents.AgentDefinition(agent_name="android" + str(i),
                                                   agent_type=holodeck.agents.AndroidAgent,
                                                   sensors=[holodeck.sensors.CustomSensor],
-                                                  starting_loc=(-1, 0, .3),
+                                                  starting_loc=(-1, 0, .25),
                                                   starting_rot=(0, 0, 0),
                                                   is_main_agent=True
                                                   ) for i in range(self._numSlaves)]
@@ -354,8 +354,12 @@ class TrackingController:
         self._env.act("android"+str(index), action)
 
 
-    def step(self):
-        res = self._env.tick()
+    def step(self, actions):
+        for _ in range(10):
+            for i in range(self._numSlaves):
+                self.act(i, actions[i])
+            res = self._env.tick()
+
         states = []
         rewards = []
         eoes = []
@@ -401,12 +405,11 @@ class TrackingController:
                 nan_count = 0
 
                 # TODO : implement reset
-                for i in range(self._numSlaves):
-                    action = [1, random.random()]
-                    self.act(i, action)
-                next_states, _, _ = self.step()
-
                 actions = [None] * self._numSlaves
+                for i in range(self._numSlaves):
+                    actions[i] = [1, random.random()]
+                next_states, _, _ = self.step(actions)
+
                 rewards = [None] * self._numSlaves
                 episodes = [None] * self._numSlaves
 
@@ -429,16 +432,15 @@ class TrackingController:
                     actions, logprobs = self._policy.getActionAndNeglogprob(states)
                     values = self._valueFunction.getValue(states)
 
+                    action_with_reset_signal = [None] * self._numSlaves
                     for j in range(self._numSlaves):
-                        action = [0, 0] + actions[j].numpy().tolist()
+                        action_with_reset_signal[j] = [0, 0] + actions[j].numpy().tolist()
                         if resetRequired[j]:
-                            action[0] = 1
-                            action[1] = random.random()
-
-                        self.act(j, action)
+                            action_with_reset_signal[j][0] = 1
+                            action_with_reset_signal[j][1] = random.random()
 
                     # run one step
-                    next_states, r, e = self.step()
+                    next_states, r, e = self.step(action_with_reset_signal)
 
                     for j in range(self._numSlaves):
                         if terminated[j]:
@@ -527,76 +529,61 @@ class TrackingController:
 
     def play(self):
         # create logging directory
-        self._directory = self._sessionName
-
-        if not os.path.exists("output/"):
-            os.mkdir("output/")
         self._directory = 'output/' + self._sessionName + '/'
-        if not os.path.exists(self._directory):
-            os.mkdir(self._directory)
-
-        directory = self._directory + "trajectory/"
-        if not os.path.exists(directory):
-            os.mkdir(directory)
-
-        directory = self._directory + "rms/"
-        if not os.path.exists(directory):
-            os.mkdir(directory)
-        directory = directory + "cur/"
-        if not os.path.exists(directory):
-            os.mkdir(directory)
-
         self.printParameters()
 
-        for i in range(self._numSlaves):
-            self._env.reset(i, i * 1.0 / self._numSlaves)
-        # self._env.reset(i, 0.974)
-
         actions = [None] * self._numSlaves
-        terminated = [False] * self._numSlaves
+        for i in range(self._numSlaves):
+            actions[i] = [1, 0.0]
+        next_states, _, _ = self.step(actions)
 
-        local_step = 0
+        rewards = [None] * self._numSlaves
+        episodes = [None] * self._numSlaves
+
+        terminated = [False] * self._numSlaves
+        resetRequired = [False] * self._numSlaves
+
         last_print = 0
         while True:
-            # update states
-            states = self._env.getStates()
+            # get states
+            states = np.array(next_states)
             states_for_update = states[~np.array(terminated)]
             states_for_update = self._rms.apply(states_for_update)
             states[~np.array(terminated)] = states_for_update
 
             # set action
-            actions, logprobs = self._policy.getActionAndNeglogprob(states)
-            values = self._valueFunction.getValue(states)
-            self._env.setActions(actions.numpy())
+            if self._isNetworkLoaded:
+                # actions, _ = self._policy.getActionAndNeglogprob(states)
+                actions = self._policy.getMeanAction(states)
+            else:
+                actions = np.zeros(shape=(self._numSlaves, self._actionSize))
+
+            action_with_reset_signal = [None] * self._numSlaves
+            for j in range(self._numSlaves):
+                action_with_reset_signal[j] = [0, 0] + np.array(actions[j]).tolist()
+                if resetRequired[j]:
+                    action_with_reset_signal[j][0] = 1
+                    action_with_reset_signal[j][1] = random.random()
 
             # run one step
-            self._env.steps(True)
+            next_states, r, e = self.step(action_with_reset_signal)
 
             for j in range(self._numSlaves):
-                if terminated[j]:
-                    continue
 
-                is_terminal, nan_occur, end_of_trajectory = self._env.isNanAtTerminal(j)
+                is_terminal = e[j][0] > 0.5 and True or False
+                nan_occur = e[j][1] > 0.5 and True or False
                 # push tuples only if nan did not occur
                 if nan_occur is not True:
-                    local_step += 1
+                    if resetRequired[j]:
+                        resetRequired[j] = False
 
                 # if episode is terminated
                 if is_terminal:
-                    terminated[j] = True
+                    resetRequired[j] = True
 
-            # if local step exceeds t_p_i: wait for others to terminate
-            if all(t is True for t in terminated):
-                print('{}'.format(local_step), end='\r')
-                break
 
-            # print progress per 100 steps
-            if last_print + 100 < local_step:
-                print('{}'.format(local_step), end='\r')
-                last_print = local_step
-
+        # optimization
         print('')
-        self._env.writeRecords(self._directory)
 
     def printParameters(self):
         # print on shell
@@ -714,26 +701,26 @@ class TrackingController:
             np.save(self._directory + "rms/mean_smax.npy", self._rms.mean)
             np.save(self._directory + "rms/var_smax.npy", self._rms.var)
 
-            os.system("cp {}/network.data-00000-of-00001 {}/network-smax.data-00000-of-00001".format(self._directory,
-                                                                                                     self._directory))
-            os.system("cp {}/network.data-00000-of-00002 {}/network-smax.data-00000-of-00002".format(self._directory,
-                                                                                                     self._directory))
-            os.system("cp {}/network.data-00001-of-00002 {}/network-smax.data-00001-of-00002".format(self._directory,
-                                                                                                     self._directory))
-            os.system("cp {}/network.index {}/network-smax.index".format(self._directory, self._directory))
+            os.system(str(Path("copy {}/network.data-00000-of-00001 {}/network-smax.data-00000-of-00001".format(self._directory,
+                                                                                                     self._directory))))
+            os.system(str(Path("copy {}/network.data-00000-of-00002 {}/network-smax.data-00000-of-00002".format(self._directory,
+                                                                                                     self._directory))))
+            os.system(str(Path("copy {}/network.data-00001-of-00002 {}/network-smax.data-00001-of-00002".format(self._directory,
+                                                                                                     self._directory))))
+            os.system(str(Path("copy {}/network.index {}/network-smax.index".format(self._directory, self._directory))))
 
         if tr > self._rmax:
             self._rmax = tr
             np.save(self._directory + "rms/mean_rmax.npy", self._rms.mean)
             np.save(self._directory + "rms/var_rmax.npy", self._rms.var)
 
-            os.system("cp {}/network.data-00000-of-00001 {}/network-rmax.data-00000-of-00001".format(self._directory,
-                                                                                                     self._directory))
-            os.system("cp {}/network.data-00000-of-00002 {}/network-rmax.data-00000-of-00002".format(self._directory,
-                                                                                                     self._directory))
-            os.system("cp {}/network.data-00001-of-00002 {}/network-rmax.data-00001-of-00002".format(self._directory,
-                                                                                                     self._directory))
-            os.system("cp {}/network.index {}/network-rmax.index".format(self._directory, self._directory))
+            os.system(str(Path("copy {}/network.data-00000-of-00001 {}/network-rmax.data-00000-of-00001".format(self._directory,
+                                                                                                     self._directory))))
+            os.system(str(Path("copy {}/network.data-00000-of-00002 {}/network-rmax.data-00000-of-00002".format(self._directory,
+                                                                                                     self._directory))))
+            os.system(str(Path("copy {}/network.data-00001-of-00002 {}/network-rmax.data-00001-of-00002".format(self._directory,
+                                                                                                     self._directory))))
+            os.system(str(Path("copy {}/network.index {}/network-rmax.index".format(self._directory, self._directory))))
 
         self._summary_num_log = self._summary_num_log + 1
 

@@ -1,37 +1,11 @@
-import sys
-from rl.TrackingController import TrackingController
-import argparse
-import os
-from IPython import embed
-import tensorflow as tf
 
-if __name__=="__main__":
-	parser = argparse.ArgumentParser()
-	parser.add_argument('-s', '--session_name', help='session name')
-	parser.add_argument('-c', '--config', help='configuration file path')
-	parser.add_argument('-ns', '--num_slaves', help='the number of slaves', default=8)
-	parser.add_argument('-n', '--network', help='network file path')
-	parser.add_argument('-t', '--network_type', help='type of the network, None : final network, rmax : maximum reward, smax : maximum step ', choices={'rmax', 'smax'})
-	args = parser.parse_args()
+from ppo import TrackingController
 
-	if args.session_name is None:
-		print("Session name required!")
-		exit()
-	if args.config is None:
-		print("Configuration file path required!")
-		exit()
+tc = TrackingController()
+tc.initialize(
+    session_name="test1",
+    num_slaves=8,
+)
 
-	with tf.device("/cpu:0"):
-		tracking_controller = TrackingController()
-		tracking_controller.initialize(
-			configuration_filepath=args.config,
-			session_name=args.session_name,
-			num_slaves=args.num_slaves,
-			trajectory_length=19000,
-			origin=True,
-			origin_offset=0,
-			use_evaluation=False
-		)
-		if args.network is not None:
-			tracking_controller.loadNetworks(args.network, args.network_type)
-		tracking_controller.runTraining(10)
+for i in range(100000):
+    tc.runTraining(1)

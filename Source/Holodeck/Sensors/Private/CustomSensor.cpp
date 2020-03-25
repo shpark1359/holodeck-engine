@@ -165,6 +165,8 @@ void UCustomSensor::GetEOE() {
 
 	float is_terminal = 0;
 	float is_nan = 0;
+	if (root_transform.GetTranslation()[2] < 60 || root_transform.GetTranslation()[2] > 130)
+		is_terminal = 1;
 	if (root_diff > 100)
 		is_terminal = 1;
 	if (root_angle_diff > 1.57)

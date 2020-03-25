@@ -37,7 +37,7 @@ void AAndroid::InitializeAgent() {
 	Super::InitializeAgent();
 	SkeletalMesh = Cast<USkeletalMeshComponent>(RootComponent);
 	UE_LOG(LogTemp, Warning, TEXT("AAndroid::InitializeAgent()"));
-	this->time_step = Cast<AHolodeckWorldSettings>(GetWorld()->GetWorldSettings())->GetConstantTimeDeltaBetweenTicks();
+	this->time_step = 0.02;// Cast<AHolodeckWorldSettings>(GetWorld()->GetWorldSettings())->GetConstantTimeDeltaBetweenTicks();
 	//SkeletalMesh->SetPhysicsBlendWeight(1.0);
 	//SkeletalMesh->SetAllBodiesPhysicsBlendWeight(1.0);
 	TArray<FString> splited_name;
@@ -46,7 +46,7 @@ void AAndroid::InitializeAgent() {
 
 	for (int i = 0; i < NumBodyinstances; i++) {
 		auto name = BodyInstanceNames[i];
-		root_offset = FVector(200*this->character_index, 0, 30);
+		root_offset = FVector(250*this->character_index, 0, 25);
 		SkeletalMesh->GetBodyInstance(name)->SetInstanceSimulatePhysics(true);
 	}
 
@@ -69,10 +69,15 @@ void AAndroid::Tick(float DeltaTime) {
 		float reset_time = CommandArray[1];
 		ResetAgent(reset_time);
 		cur_time = reset_time;
+		step_count = 0;
 	}
 	else {
 		ApplyTorques(DeltaTime);
-		cur_time += DeltaTime;
+		step_count++;
+		if (step_count == 10) {
+			step_count = 0;
+			cur_time += this->time_step;
+		}
 	}
 }
 
@@ -129,14 +134,15 @@ FVector AAndroid::getReferenceJointAngularVelocity(FName b_name) {
 
 FVector AAndroid::getReferenceJointAngularVelocity(FName b_name, float time) {
 	FName b_p_name = this->parents[b_name];
+	float vel_time_step = 0.1;
 	FTransform b_transform_cur = GetAnimBoneTransform(b_name, time);
 	FTransform b_p_transform_cur = GetAnimBoneTransform(b_p_name, time);
 
-	FTransform b_transform_prev = GetAnimBoneTransform(b_name, time - time_step);
-	FTransform b_p_transform_prev = GetAnimBoneTransform(b_p_name, time - time_step);
+	FTransform b_transform_prev = GetAnimBoneTransform(b_name, time - vel_time_step);
+	FTransform b_p_transform_prev = GetAnimBoneTransform(b_p_name, time - vel_time_step);
 
 	return (QuatToRotationVector(b_transform_cur.GetRotation()*b_transform_prev.GetRotation().Inverse())
-		- QuatToRotationVector(b_p_transform_cur.GetRotation()*b_p_transform_prev.GetRotation().Inverse())) / time_step;
+		- QuatToRotationVector(b_p_transform_cur.GetRotation()*b_p_transform_prev.GetRotation().Inverse())) / vel_time_step;
 
 
 }
@@ -186,8 +192,10 @@ void AAndroid::applyTorqueByName(FName b_name, FName b_p_name, double p_gain, do
 	FTransform b_transform = SkeletalMesh->GetBoneTransform(b_index);
 	FTransform b_p_transform = SkeletalMesh->GetBoneTransform(b_p_index);
 
-	FQuat delta_quat(b_p_transform.GetRotation().Inverse()*b_transform.GetRotation()*delta_cur.Inverse());
-	FVector delta = b_p_transform.GetRotation().RotateVector(QuatToRotationVector(delta_quat) + action);
+	FQuat delta_target(b_p_transform.GetRotation().Inverse()*b_transform.GetRotation());
+	delta_target = RotationVectorToQuat(QuatToRotationVector(delta_target) + action);
+	FQuat delta_quat(delta_target*delta_cur.Inverse());
+	FVector delta = b_p_transform.GetRotation().RotateVector(QuatToRotationVector(delta_quat));
 
 
 	FVector cur_vel = getJointAngularVelocity(b_name);
@@ -247,10 +255,10 @@ void AAndroid::ResetAgent(float reset_time) {
 }
 
 void AAndroid::ApplyTorques(double DeltaTime) {
-	UE_LOG(LogHolodeck, Warning, TEXT("AAndroid::ApplyTorques, delta time : %f"), DeltaTime);
+	// UE_LOG(LogHolodeck, Warning, TEXT("AAndroid::ApplyTorques, delta time : %f"), DeltaTime);
 	int ComInd = 0;
-	double p_gain = 3000000;
-	double d_gain = 3000;
+	double p_gain = 20000 * 500;// 3000000;
+	double d_gain = 20 * 500;// 3000;
 
 
 	torques.Reset();
@@ -261,11 +269,19 @@ void AAndroid::ApplyTorques(double DeltaTime) {
 		torques.Add(ModifiedBoneLists[i], FVector(0.0, 0.0, 0.0));
 		forces.Add(ModifiedBoneLists[i], FVector(0.0, 0.0, 0.0));
 		FVector v = SkeletalMesh->GetBodyInstance(ModifiedBoneLists[i])->GetUnrealWorldAngularVelocityInRadians();
-		UE_LOG(LogHolodeck, Warning, TEXT("%s, %f, %f, %f"), *ModifiedBoneLists[i].ToString(), v.X, v.Y, v.Z);
+		// UE_LOG(LogHolodeck, Warning, TEXT("%s, %f, %f, %f"), *ModifiedBoneLists[i].ToString(), v.X, v.Y, v.Z);
 	}
 	for (int i = 0; i < ModifiedNumBones; i++) {
 		FVector action(CommandArray[2 + i * 3], CommandArray[2 + i * 3 + 1], CommandArray[2 + i * 3 + 2]);
 		action *= 0.2;
+		for (int j = 0; j < 3; j++) {
+			if (action[j] > 0.7*PI) {
+				action[j] = 0.7*PI;
+			}
+			if (action[j] < -0.7*PI) {
+				action[j] = -0.7*PI;
+			}
+		}
 		applyTorqueByName(ModifiedBoneLists[i], ModifiedBoneParentLists[i], p_gain, d_gain, action);
 	}
 
