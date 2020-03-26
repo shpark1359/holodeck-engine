@@ -40,6 +40,7 @@ void AAndroid::InitializeAgent() {
 	this->time_step = 0.02;// Cast<AHolodeckWorldSettings>(GetWorld()->GetWorldSettings())->GetConstantTimeDeltaBetweenTicks();
 	//SkeletalMesh->SetPhysicsBlendWeight(1.0);
 	//SkeletalMesh->SetAllBodiesPhysicsBlendWeight(1.0);
+	UE_LOG(LogTemp, Warning, TEXT("AAndroid::InitializeAgent() name : %s"), *this->GetName());
 	TArray<FString> splited_name;
 	int splited_num = this->GetName().ParseIntoArray(splited_name, TEXT("_"));
 	this->character_index = FCString::Atoi(*splited_name[2]);
@@ -192,6 +193,7 @@ void AAndroid::applyTorqueByName(FName b_name, FName b_p_name, double p_gain, do
 	FTransform b_transform = SkeletalMesh->GetBoneTransform(b_index);
 	FTransform b_p_transform = SkeletalMesh->GetBoneTransform(b_p_index);
 
+
 	FQuat delta_target(b_p_transform.GetRotation().Inverse()*b_transform.GetRotation());
 	delta_target = RotationVectorToQuat(QuatToRotationVector(delta_target) + action);
 	FQuat delta_quat(delta_target*delta_cur.Inverse());
@@ -220,10 +222,10 @@ void AAndroid::applyTorqueByName(FName b_name, FName b_p_name, double p_gain, do
 		b_transform.GetRotation().Inverse().RotateVector(cur_vel) 
 		- b_transform_cur.GetRotation().Inverse().RotateVector(desired_vel2)
 	);
-
+	
 	if (b_name == FName("spine_01") || b_name == FName("spine_02") || b_name == FName("thigh_l") || b_name == FName("thigh_r")) {
-		p_gain *= 8;
-		d_gain *= 8;
+		p_gain *= 4;
+		d_gain *= 4;
 	}
 	if (b_name == FName("calf_l") || b_name == FName("calf_r")) {
 		p_gain *= 2;
@@ -243,12 +245,10 @@ void AAndroid::ResetAgent(float reset_time) {
 		auto name = BodyInstanceNames[i];
 		FTransform bt = GetAnimBoneTransformWithRoot(name, reset_time);
 		FTransform bt_prev = GetAnimBoneTransformWithRoot(name, reset_time - vel_time_step);
-		bt.SetTranslation(bt.GetTranslation());
-		SkeletalMesh->GetBodyInstance(name)->SetBodyTransform(bt, ETeleportType::ResetPhysics);
 
 		FVector av = QuatToRotationVector(bt.GetRotation()*bt_prev.GetRotation().Inverse()) / vel_time_step;
 		FVector lv = (bt.GetTranslation() - bt_prev.GetTranslation()) / vel_time_step;
-
+		SkeletalMesh->GetBodyInstance(name)->SetBodyTransform(bt, ETeleportType::ResetPhysics);
 		SkeletalMesh->GetBodyInstance(name)->SetAngularVelocityInRadians(av, false);
 		SkeletalMesh->GetBodyInstance(name)->SetLinearVelocity(lv, false);
 	}
@@ -450,7 +450,7 @@ const FName AAndroid::BodyInstanceNames[] = {
 	FName(TEXT("spine_02")),
 	FName(TEXT("upperarm_l")),
 	FName(TEXT("lowerarm_l")),
-	FName(TEXT("hand_l")),
+	FName(TEXT("hand_l")),/*
 	FName(TEXT("index_01_l")),
 	FName(TEXT("index_02_l")),
 	FName(TEXT("index_03_l")),
@@ -465,10 +465,10 @@ const FName AAndroid::BodyInstanceNames[] = {
 	FName(TEXT("ring_03_l")),
 	FName(TEXT("thumb_01_l")),
 	FName(TEXT("thumb_02_l")),
-	FName(TEXT("thumb_03_l")),
+	FName(TEXT("thumb_03_l")),*/
 	FName(TEXT("upperarm_r")),
 	FName(TEXT("lowerarm_r")),
-	FName(TEXT("hand_r")),
+	FName(TEXT("hand_r")),/*
 	FName(TEXT("index_01_r")),
 	FName(TEXT("index_02_r")),
 	FName(TEXT("index_03_r")),
@@ -483,7 +483,7 @@ const FName AAndroid::BodyInstanceNames[] = {
 	FName(TEXT("ring_03_r")),
 	FName(TEXT("thumb_01_r")),
 	FName(TEXT("thumb_02_r")),
-	FName(TEXT("thumb_03_r")),
+	FName(TEXT("thumb_03_r")),*/
 	FName(TEXT("neck_01")),
 	FName(TEXT("head")),
 	FName(TEXT("thigh_l")),
@@ -497,7 +497,7 @@ const FName AAndroid::BodyInstanceNames[] = {
 };
 
 // If you change this number, change the corresponding number in RelativeSkeletalPositionSensor.__init__
-const int AAndroid::NumBodyinstances = 49;
+const int AAndroid::NumBodyinstances = 19;
 
 const int AAndroid::ModifiedNumBones = 18;
 

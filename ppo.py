@@ -148,13 +148,13 @@ class TrackingController:
         # get parameters from config
         self._numSlaves = num_slaves
 
-        self._gamma = 0.95
+        self._gamma = 0.99
         self._lambd = 0.95
         self._clipRange = 0.2
 
-        self._learningRatePolicy = 1e-5
+        self._learningRatePolicy = 1e-4
         self._learningRatePolicyDecay = 0.9993
-        self._learningRateValueFunction = 1e-4
+        self._learningRateValueFunction = 1e-3
 
         self._batchSize = 1024
         self._transitionsPerIteration = 20000
@@ -174,6 +174,9 @@ class TrackingController:
                                                   is_main_agent=True
                                                   ) for i in range(self._numSlaves)]
         self._env = HolodeckEnvironment(agent_definitions=agents, start_world=False)
+        # self._env = holodeck.make("PPO")
+        # self._env.should_render_viewport(False)
+
         self._stateSize = 18 * 3 + 5 * 3 + 5 * 3
         self._rewardSize = 5
         self._eoeSize  = 2
@@ -529,7 +532,20 @@ class TrackingController:
 
     def play(self):
         # create logging directory
+        if not os.path.exists("output/"):
+            os.mkdir("output/")
         self._directory = 'output/' + self._sessionName + '/'
+
+        if not os.path.exists(self._directory):
+            os.mkdir(self._directory)
+
+        directory = self._directory + "rms/"
+        if not os.path.exists(directory):
+            os.mkdir(directory)
+
+        directory = directory + "cur/"
+        if not os.path.exists(directory):
+            os.mkdir(directory)
         self.printParameters()
 
         actions = [None] * self._numSlaves

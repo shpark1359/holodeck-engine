@@ -3,7 +3,7 @@ from ppo import TrackingController
 
 tc = TrackingController()
 tc.initialize(
-    session_name="test1",
+    session_name="test2",
     num_slaves=8,
 )
 
