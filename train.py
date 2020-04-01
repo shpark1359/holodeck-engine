@@ -3,10 +3,13 @@ from ppo import TrackingController
 
 tc = TrackingController()
 tc.initialize(
-    session_name="test3",
-    num_slaves=8,
+    session_name="test6",
+    num_slaves=32,
+    tps=10000
 )
-tc.loadNetworks(directory="./output/test2", network_type=None)
+# tc.loadNetworks(directory="./output/test4", network_type=None)
+
+# TODO
 
 for i in range(100000):
     tc.runTraining(1)

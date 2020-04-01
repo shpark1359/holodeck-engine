@@ -42,6 +42,13 @@ int UCustomSensor::GetNumItems() {
 }
 
 void UCustomSensor::TickSensorComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) {
+	/*
+	float* FloatBuffer = static_cast<float*>(Buffer);
+	int index = 0;
+	for(int i = 0; i < this->StateSize; i++)
+		FloatBuffer[index + i] = 0;
+	return;
+	*/
 	this->GetState();
 	this->GetReward();
 	this->GetEOE();
@@ -115,6 +122,7 @@ void UCustomSensor::GetReward() {
 		FVector av = this->Parent->getJointAngularVelocity(b_name);
 		FVector target_av = this->Parent->getReferenceJointAngularVelocity(b_name);
 		rew_v += (av - target_av).SizeSquared();
+		//UE_LOG(LogTemp, Warning, TEXT("name : %s"), *b_name.ToString());
 		//printVector(av);
 		//printVector(target_av);
 
@@ -165,12 +173,22 @@ void UCustomSensor::GetEOE() {
 
 	float is_terminal = 0;
 	float is_nan = 0;
-	if (root_transform.GetTranslation()[2] < 100 || root_transform.GetTranslation()[2] > 140)
+	if (root_transform.GetTranslation()[2] < 90 || root_transform.GetTranslation()[2] > 140)
 		is_terminal = 1;
-	if (root_diff > 100)
+	
+	if (root_transform.GetTranslation()[1] > 3000) {
 		is_terminal = 1;
-	if (root_angle_diff > 1.57)
+	}
+
+	if (root_diff > 100) {
 		is_terminal = 1;
+		//UE_LOG(LogTemp, Warning, TEXT("Terminal 1"));
+	}
+	if (root_angle_diff > 1.57){
+		is_terminal = 1;
+		//UE_LOG(LogTemp, Warning, TEXT("Terminal 2"));
+	}
+	
 
 	float* FloatBuffer = static_cast<float*>(Buffer);
 	int index = this->StateSize + this->RewardSize;

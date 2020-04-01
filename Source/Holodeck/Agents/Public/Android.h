@@ -116,6 +116,8 @@ public:
 	FTransform GetAnimBoneTransformWithRoot(FName b_name);
 	FTransform GetAnimBoneTransformWithRootNext(FName b_name);
 
+	TArray<TMap<FName, FTransform>> animation_data;
+	bool is_animation_loaded = false;
 	TMap<FName, FTransform> body_transform_init;
 	TMap<FName, FVector> torques;
 	TMap<FName, FVector> forces;

@@ -141,6 +141,7 @@ class TrackingController:
     def initialize(self,
                    session_name="default_session",
                    num_slaves=8,
+                   tps = 10000,
                    use_evaluation=False
                    ):
 
@@ -169,11 +170,11 @@ class TrackingController:
         agents = [holodeck.agents.AgentDefinition(agent_name="android" + str(i),
                                                   agent_type=holodeck.agents.AndroidAgent,
                                                   sensors=[holodeck.sensors.CustomSensor],
-                                                  starting_loc=(-1, 0, .25),
+                                                  starting_loc=(-1, 0, .3),
                                                   starting_rot=(0, 0, 0),
                                                   is_main_agent=True
                                                   ) for i in range(self._numSlaves)]
-        self._env = HolodeckEnvironment(agent_definitions=agents, start_world=False)
+        self._env = HolodeckEnvironment(agent_definitions=agents, start_world=False, ticks_per_sec=tps)
         # self._env = holodeck.make("PPO")
         # self._env.should_render_viewport(False)
 
@@ -358,7 +359,7 @@ class TrackingController:
 
 
     def step(self, actions):
-        for _ in range(10):
+        for _ in range(20):
             for i in range(self._numSlaves):
                 self.act(i, actions[i])
             res = self._env.tick()
