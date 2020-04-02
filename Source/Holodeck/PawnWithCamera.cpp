@@ -14,9 +14,9 @@ APawnWithCamera::APawnWithCamera()
 	OurCameraSpringArm = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraSpringArm"));
 	OurCameraSpringArm->SetupAttachment(RootComponent);
 	OurCameraSpringArm->SetRelativeLocationAndRotation(FVector(0.0f, 0.0f, 0.0f), FRotator(-20.0f, 0.0f, 0.0f));
-	OurCameraSpringArm->TargetArmLength = 400.f;
+	OurCameraSpringArm->TargetArmLength = 10.f;
 	OurCameraSpringArm->bEnableCameraLag = true;
-	OurCameraSpringArm->CameraLagSpeed = 3.0f;
+	OurCameraSpringArm->CameraLagSpeed = 10.0f;
 	OurCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("GameCamera"));
 	OurCamera->SetupAttachment(OurCameraSpringArm, USpringArmComponent::SocketName);
 
@@ -49,7 +49,7 @@ void APawnWithCamera::Tick(float DeltaTime)
 		ZoomFactor = FMath::Clamp<float>(ZoomFactor, 0.0f, 1.0f);
 		//Blend our camera's FOV and our SpringArm's length based on ZoomFactor
 		OurCamera->FieldOfView = FMath::Lerp<float>(90.0f, 60.0f, ZoomFactor);
-		OurCameraSpringArm->TargetArmLength = FMath::Lerp<float>(400.0f, 300.0f, ZoomFactor);
+		//OurCameraSpringArm->TargetArmLength = FMath::Lerp<float>(100.0f, 20.0f, ZoomFactor);
 	}
 
 	//Rotate our actor's yaw, which will turn our camera because we're attached to it
