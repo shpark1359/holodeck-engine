@@ -87,6 +87,9 @@ void AAndroid::InitializeAgent() {
 	}
 
 
+	// add component for reference
+	referenceComponent = Cast<UPoseableMeshComponent>(RootComponent->GetChildComponent(0));
+	UE_LOG(LogTemp, Warning, TEXT("reference Component name : %s"), *(referenceComponent->GetName()));
 }
 
 void AAndroid::Tick(float DeltaTime) {
@@ -100,12 +103,28 @@ void AAndroid::Tick(float DeltaTime) {
 		step_count = 0;
 	}
 	else {
-		ApplyTorques(DeltaTime);
+
+		//ApplyTorques(DeltaTime);
 		step_count++;
 		if (step_count == 20) {
 			step_count = 0;
 			cur_time += this->time_step;
 		}
+	}
+
+	// set reference
+	for (int j = 0; j < NumBodyinstances; j++) {
+		FName b_name = BodyInstanceNames[j];
+		FTransform bt = GetAnimBoneTransformWithRoot(b_name, cur_time);
+		SkeletalMesh->GetBodyInstance(b_name)->SetBodyTransform(bt, ETeleportType::ResetPhysics);
+		SkeletalMesh->GetBodyInstance(b_name)->SetAngularVelocityInRadians(FVector::ZeroVector, false);
+		SkeletalMesh->GetBodyInstance(b_name)->SetLinearVelocity(FVector::ZeroVector, false);
+		bt.SetTranslation(bt.GetTranslation() + FVector(-100, 0.0, 0.0));
+		if (b_name == FName("pelvis")) {
+			UE_LOG(LogTemp, Warning, TEXT("pelvis translation : %f, %f, %f "), bt.GetTranslation().X, bt.GetTranslation().Y, bt.GetTranslation().Z);
+		}
+		referenceComponent->SetBoneTransformByName(b_name, bt, EBoneSpaces::WorldSpace);
+
 	}
 
 	/*
@@ -303,7 +322,7 @@ void AAndroid::ResetAgent(float reset_time) {
 void AAndroid::ApplyTorques(double DeltaTime) {
 	// UE_LOG(LogHolodeck, Warning, TEXT("AAndroid::ApplyTorques, delta time : %f"), DeltaTime);
 	int ComInd = 0;
-	double p_gain = 5000000;//20000 * 100;// 3000000;
+	double p_gain = 2*5000000;//20000 * 100;// 3000000;
 	double d_gain = 10000;// 10 * 50;// 10000 * 500;// 3000;
 
 
@@ -319,7 +338,7 @@ void AAndroid::ApplyTorques(double DeltaTime) {
 	}
 	for (int i = 0; i < ModifiedNumBones; i++) {
 		FVector action(CommandArray[2 + i * 3], CommandArray[2 + i * 3 + 1], CommandArray[2 + i * 3 + 2]);
-		action *= 0.2;
+		action *= 0.1;
 		for (int j = 0; j < 3; j++) {
 			if (action[j] > 0.7*PI) {
 				action[j] = 0.7*PI;
@@ -334,8 +353,8 @@ void AAndroid::ApplyTorques(double DeltaTime) {
 	//UE_LOG(LogTemp, Warning, TEXT("==========================="));
 	//printVector(torques[FName("pelvis")]);
 	for (auto& elem : torques) {
-		SkeletalMesh->GetBodyInstance(elem.Key)->AddTorqueInRadians(elem.Value);
-		continue;
+		//SkeletalMesh->GetBodyInstance(elem.Key)->AddTorqueInRadians(elem.Value);
+		//continue;
 		// torque to force and twist
 		FVector com_pos = SkeletalMesh->GetBodyInstance(elem.Key)->GetCOMPosition();
 		FVector joint_pos = SkeletalMesh->GetBodyInstance(elem.Key)->GetUnrealWorldTransform().GetTranslation();

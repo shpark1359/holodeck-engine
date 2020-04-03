@@ -7,6 +7,7 @@
 #include "GameFramework/Pawn.h"
 #include "HolodeckAgent.h"
 #include "Animation/AnimSequence.h"
+#include "Components/PoseableMeshComponent.h"
 
 #include "Android.generated.h"
 
@@ -127,7 +128,7 @@ public:
 	float time_step;
 	int character_index;
 	int step_count;
-
+	UPoseableMeshComponent* referenceComponent;
 	FVector root_offset;
 
 };
