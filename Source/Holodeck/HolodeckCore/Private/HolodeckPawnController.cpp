@@ -38,6 +38,7 @@ void AHolodeckPawnController::OnPossess(APawn* InPawn) {
 		UE_LOG(LogHolodeck, Fatal, TEXT("HolodeckPawnController couldn't find server..."));
 	}
 
+	UE_LOG(LogHolodeck, Error, TEXT("AHolodeckPawnController::OnPossess RawControlScheme added"));
 	URawControlScheme* RawControlScheme = NewObject<URawControlScheme>();
 	RawControlScheme->Agent = ControlledAgent;
 	ControlSchemes.Add(RawControlScheme);

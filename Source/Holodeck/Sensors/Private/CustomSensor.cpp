@@ -190,6 +190,12 @@ void UCustomSensor::GetEOE() {
 	}
 	
 
+	// DEBUG
+	is_terminal = 0;
+	if (this->Parent->cur_time > 2.0)
+		is_terminal = 1;
+
+	
 	float* FloatBuffer = static_cast<float*>(Buffer);
 	int index = this->StateSize + this->RewardSize;
 	FloatBuffer[index + 0] = is_terminal;

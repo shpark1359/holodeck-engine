@@ -18,6 +18,7 @@ void UAndroidControlSchemeMaxTorque::Execute(void* const CommandArray, void* con
 			return;
 		}
 	}
+	UE_LOG(LogHolodeck, Error, TEXT("UAndroidControlSchemeMaxTorque Execute"));
 
     USkeletalMeshComponent* SkeletalMesh =  Android->SkeletalMesh;
 

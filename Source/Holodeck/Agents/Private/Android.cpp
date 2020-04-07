@@ -88,8 +88,10 @@ void AAndroid::InitializeAgent() {
 
 
 	// add component for reference
+	/*
 	referenceComponent = Cast<UPoseableMeshComponent>(RootComponent->GetChildComponent(0));
 	UE_LOG(LogTemp, Warning, TEXT("reference Component name : %s"), *(referenceComponent->GetName()));
+	*/
 }
 
 void AAndroid::Tick(float DeltaTime) {
@@ -97,14 +99,14 @@ void AAndroid::Tick(float DeltaTime) {
 	if (!is_animation_loaded) return;
 	float reset_required = CommandArray[0];
 	if (reset_required > 0.5) {
-		float reset_time = CommandArray[1];
+		float reset_time = int(1000 * CommandArray[1]) / 1000.;
 		ResetAgent(reset_time);
 		cur_time = reset_time;
 		step_count = 0;
 	}
 	else {
 
-		//ApplyTorques(DeltaTime);
+		ApplyTorques(DeltaTime);
 		step_count++;
 		if (step_count == 20) {
 			step_count = 0;
@@ -113,12 +115,13 @@ void AAndroid::Tick(float DeltaTime) {
 	}
 
 	// set reference
+	/*
 	for (int j = 0; j < NumBodyinstances; j++) {
 		FName b_name = BodyInstanceNames[j];
 		FTransform bt = GetAnimBoneTransformWithRoot(b_name, cur_time);
-		SkeletalMesh->GetBodyInstance(b_name)->SetBodyTransform(bt, ETeleportType::ResetPhysics);
-		SkeletalMesh->GetBodyInstance(b_name)->SetAngularVelocityInRadians(FVector::ZeroVector, false);
-		SkeletalMesh->GetBodyInstance(b_name)->SetLinearVelocity(FVector::ZeroVector, false);
+		//SkeletalMesh->GetBodyInstance(b_name)->SetBodyTransform(bt, ETeleportType::ResetPhysics);
+		//SkeletalMesh->GetBodyInstance(b_name)->SetAngularVelocityInRadians(FVector::ZeroVector, false);
+		//SkeletalMesh->GetBodyInstance(b_name)->SetLinearVelocity(FVector::ZeroVector, false);
 		bt.SetTranslation(bt.GetTranslation() + FVector(-100, 0.0, 0.0));
 		if (b_name == FName("pelvis")) {
 			UE_LOG(LogTemp, Warning, TEXT("pelvis translation : %f, %f, %f "), bt.GetTranslation().X, bt.GetTranslation().Y, bt.GetTranslation().Z);
@@ -126,19 +129,23 @@ void AAndroid::Tick(float DeltaTime) {
 		referenceComponent->SetBoneTransformByName(b_name, bt, EBoneSpaces::WorldSpace);
 
 	}
-
-	/*
-	cur_time += this->time_step/10;
-	UE_LOG(LogTemp, Warning, TEXT("======================================"));
-	UE_LOG(LogTemp, Warning, TEXT("name : %f"), cur_time);
-	for (int i = 0; i < NumBodyinstances; i++) {
-		float vel_time_step = 0.01;
-		auto name = BodyInstanceNames[i];
-		FVector lv = SkeletalMesh->GetBodyInstance(name)->GetUnrealWorldVelocity();
-		UE_LOG(LogTemp, Warning, TEXT("name : %s"), *name.ToString());
-		printVector(lv);
-	}
 	*/
+	// debug angular velocities
+	UE_LOG(LogTemp, Warning, TEXT("======================================"));
+	for (int i = 0; i < ModifiedNumBones; i++) {
+		auto name = ModifiedBoneLists[i];
+		//FVector av = SkeletalMesh->GetBodyInstance(name)->GetUnrealWorldAngularVelocityInRadians();
+		FVector av = getJointAngularVelocity(name);
+		FVector rav = getReferenceJointAngularVelocity(name);
+		float diff = (av - rav).Size();
+		UE_LOG(LogTemp, Warning, TEXT("name : %s : ref (%f, %f, %f), sim (%f, %f, %f) - diff : %f"),
+			*name.ToString(),
+			rav[0], rav[1], rav[2],
+			av[0], av[1], av[2],
+			diff
+		);
+	}
+	
 }
 
 void AAndroid::SetCollisionsVisible(bool Visible) {
@@ -182,8 +189,6 @@ FVector AAndroid::getJointAngularVelocity(FName b_name) {
 	if (SkeletalMesh->GetBodyInstance(b_name) != NULL) {
 		v = SkeletalMesh->GetBodyInstance(b_name)->GetUnrealWorldAngularVelocityInRadians();
 	}
-	//printVector(v);
-	//printVector(pv);
 	return  v - pv;
 
 }
@@ -258,7 +263,7 @@ void AAndroid::applyTorqueByName(FName b_name, FName b_p_name, double p_gain, do
 
 
 	FQuat delta_target(b_p_transform.GetRotation().Inverse()*b_transform.GetRotation());
-	delta_target = RotationVectorToQuat(QuatToRotationVector(delta_target) + action);
+	delta_cur = RotationVectorToQuat(QuatToRotationVector(delta_cur) + action);
 	FQuat delta_quat(delta_target*delta_cur.Inverse());
 	FVector delta = b_p_transform.GetRotation().RotateVector(QuatToRotationVector(delta_quat));
 
@@ -268,23 +273,20 @@ void AAndroid::applyTorqueByName(FName b_name, FName b_p_name, double p_gain, do
 	FTransform b_transform_prev = GetAnimBoneTransform(b_name, cur_time + time_step - vel_time_step);
 	FTransform b_p_transform_prev = GetAnimBoneTransform(b_p_name, cur_time + time_step - vel_time_step);
 
-	FVector desired_vel2 = (QuatToRotationVector(b_transform_cur.GetRotation()*b_transform_prev.GetRotation().Inverse())
+	FVector desired_vel = (QuatToRotationVector(b_transform_cur.GetRotation()*b_transform_prev.GetRotation().Inverse())
 		- QuatToRotationVector(b_p_transform_cur.GetRotation()*b_p_transform_prev.GetRotation().Inverse())) / vel_time_step;
-	/*
-	FVector desired_vel1 = b_p_transform_cur.GetRotation().RotateVector(QuatToRotationVector(
-		(b_p_transform_cur.GetRotation().Inverse()*b_transform_cur.GetRotation())
-		*(b_p_transform_prev.GetRotation().Inverse()*b_transform_prev.GetRotation()).Inverse()
-	) / vel_time_step);
-	UE_LOG(LogTemp, Warning, TEXT("============ %s ============"), *b_name.ToString());
-	
-	printVector(b_transform.GetRotation().Inverse().RotateVector(cur_vel));
-	printVector(b_transform_cur.GetRotation().Inverse().RotateVector(desired_vel1));
-	printVector(b_transform_cur.GetRotation().Inverse().RotateVector(desired_vel2));
-	*/
+
+
 	FVector d_delta = b_transform.GetRotation().RotateVector(
 		b_transform.GetRotation().Inverse().RotateVector(cur_vel) 
-		- b_transform_cur.GetRotation().Inverse().RotateVector(desired_vel2)
+		- b_transform_cur.GetRotation().Inverse().RotateVector(desired_vel)
 	);
+
+	FVector torque = -1.0 * (delta*p_gain + d_delta*d_gain);
+
+	torques[b_p_name] -= torque;
+	torques[b_name] += torque;
+
 	/*
 	if (b_name == FName("spine_01") || b_name == FName("spine_02") || b_name == FName("thigh_l") || b_name == FName("thigh_r")) {
 		p_gain *= 4;
@@ -295,10 +297,6 @@ void AAndroid::applyTorqueByName(FName b_name, FName b_p_name, double p_gain, do
 		d_gain *= 2;
 	}
 	*/
-	FVector torque = -1.0 * (delta*p_gain + d_delta*d_gain);
-
-	torques[b_p_name] -= torque;
-	torques[b_name] += torque;
 }
 
 
@@ -322,8 +320,8 @@ void AAndroid::ResetAgent(float reset_time) {
 void AAndroid::ApplyTorques(double DeltaTime) {
 	// UE_LOG(LogHolodeck, Warning, TEXT("AAndroid::ApplyTorques, delta time : %f"), DeltaTime);
 	int ComInd = 0;
-	double p_gain = 2*5000000;//20000 * 100;// 3000000;
-	double d_gain = 10000;// 10 * 50;// 10000 * 500;// 3000;
+	double p_gain = 5000000;// 20000000;
+	double d_gain = 50000;// 10000;
 
 
 	torques.Reset();
@@ -333,12 +331,16 @@ void AAndroid::ApplyTorques(double DeltaTime) {
 	for (int i = 0; i < ModifiedNumBones; i++) {
 		torques.Add(ModifiedBoneLists[i], FVector(0.0, 0.0, 0.0));
 		forces.Add(ModifiedBoneLists[i], FVector(0.0, 0.0, 0.0));
-		FVector v = SkeletalMesh->GetBodyInstance(ModifiedBoneLists[i])->GetUnrealWorldAngularVelocityInRadians();
+		// FVector v = SkeletalMesh->GetBodyInstance(ModifiedBoneLists[i])->GetUnrealWorldAngularVelocityInRadians();
 		// UE_LOG(LogHolodeck, Warning, TEXT("%s, %f, %f, %f"), *ModifiedBoneLists[i].ToString(), v.X, v.Y, v.Z);
 	}
+	//UE_LOG(LogTemp, Warning, TEXT("========================================"));
+	//UE_LOG(LogTemp, Warning, TEXT("android index : %d"), character_index);
+	//UE_LOG(LogTemp, Warning, TEXT("reset signal : %f, %f"), CommandArray[0], CommandArray[1]);
 	for (int i = 0; i < ModifiedNumBones; i++) {
+		//UE_LOG(LogTemp, Warning, TEXT("%f, %f, %f"), CommandArray[2 + i * 3], CommandArray[2 + i * 3 + 1], CommandArray[2 + i * 3 + 2]);
 		FVector action(CommandArray[2 + i * 3], CommandArray[2 + i * 3 + 1], CommandArray[2 + i * 3 + 2]);
-		action *= 0.1;
+		action *= 0.2;
 		for (int j = 0; j < 3; j++) {
 			if (action[j] > 0.7*PI) {
 				action[j] = 0.7*PI;
@@ -353,7 +355,8 @@ void AAndroid::ApplyTorques(double DeltaTime) {
 	//UE_LOG(LogTemp, Warning, TEXT("==========================="));
 	//printVector(torques[FName("pelvis")]);
 	for (auto& elem : torques) {
-		//SkeletalMesh->GetBodyInstance(elem.Key)->AddTorqueInRadians(elem.Value);
+		SkeletalMesh->GetBodyInstance(elem.Key)->AddTorqueInRadians(elem.Value);
+		/*
 		//continue;
 		// torque to force and twist
 		FVector com_pos = SkeletalMesh->GetBodyInstance(elem.Key)->GetCOMPosition();
@@ -379,6 +382,7 @@ void AAndroid::ApplyTorques(double DeltaTime) {
 		//SkeletalMesh->GetBodyInstance(elem.Key)->AddTorqueInRadians(twist_torque);
 		SkeletalMesh->GetBodyInstance(elem.Key)->AddForceAtPosition(swing_force, 2*com_pos-joint_pos);
 		SkeletalMesh->GetBodyInstance(elem.Key)->AddForceAtPosition(-swing_force, joint_pos);
+	*/
 	}
 }
 

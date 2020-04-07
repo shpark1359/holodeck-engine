@@ -3,11 +3,11 @@ from ppo import TrackingController
 
 tc = TrackingController()
 tc.initialize(
-    session_name="test7",
+    session_name="test10",
     num_slaves=64,
     tps=10000
 )
-# tc.loadNetworks(directory="./output/test4", network_type=None)
+# tc.loadNetworks(directory="./output/test8", network_type=None)
 
 # TODO
 
