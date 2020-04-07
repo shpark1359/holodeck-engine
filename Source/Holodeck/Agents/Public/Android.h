@@ -87,6 +87,8 @@ public:
 	void* GetRawActionBuffer() const override {
 		return (void*)CommandArray;
 	}
+	UPROPERTY(BlueprintReadWrite)
+		float cur_time = 0;
 		
 private:
 public:
@@ -124,11 +126,10 @@ public:
 	TMap<FName, FVector> forces;
 	TMap<FName, FName> parents;
 	FQuat prev_rot;
-	float cur_time;
 	float time_step;
 	int character_index;
 	int step_count;
-	UPoseableMeshComponent* referenceComponent;
+	UPoseableMeshComponent* mRefComponent;
 	FVector root_offset;
 
 };

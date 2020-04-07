@@ -119,6 +119,9 @@ void UCustomSensor::GetReward() {
 	float rew_v = 0;
 	for (int i = 0; i < this->NumJoints; i++) {
 		FName b_name = AAndroid::ModifiedBoneLists[i];
+		if (b_name == FName("ball_l") || b_name == FName("ball_r")) {
+			continue;
+		}
 		FVector av = this->Parent->getJointAngularVelocity(b_name);
 		FVector target_av = this->Parent->getReferenceJointAngularVelocity(b_name);
 		rew_v += (av - target_av).SizeSquared();
@@ -128,7 +131,7 @@ void UCustomSensor::GetReward() {
 
 	}
 	float rew_v_t = rew_v;
-	rew_v /= (this->NumJoints * 3);
+	rew_v /= ((this->NumJoints - 2) * 3);
 	rew_v = exp(-rew_v / (sig_v * sig_v));
 
 	// com reward
@@ -191,10 +194,11 @@ void UCustomSensor::GetEOE() {
 	
 
 	// DEBUG
+	/*
 	is_terminal = 0;
-	if (this->Parent->cur_time > 2.0)
+	if (this->Parent->cur_time > 1.5)
 		is_terminal = 1;
-
+	*/
 	
 	float* FloatBuffer = static_cast<float*>(Buffer);
 	int index = this->StateSize + this->RewardSize;

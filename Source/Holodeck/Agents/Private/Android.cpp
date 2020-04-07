@@ -47,7 +47,7 @@ void AAndroid::InitializeAgent() {
 
 	for (int i = 0; i < NumBodyinstances; i++) {
 		auto name = BodyInstanceNames[i];
-		root_offset = FVector(250*this->character_index, 0, 30);
+		root_offset = FVector(250*this->character_index, 0, 28);
 		SkeletalMesh->GetBodyInstance(name)->SetInstanceSimulatePhysics(true);
 	}
 
@@ -88,10 +88,8 @@ void AAndroid::InitializeAgent() {
 
 
 	// add component for reference
-	/*
-	referenceComponent = Cast<UPoseableMeshComponent>(RootComponent->GetChildComponent(0));
-	UE_LOG(LogTemp, Warning, TEXT("reference Component name : %s"), *(referenceComponent->GetName()));
-	*/
+	//mRefComponent = Cast<UPoseableMeshComponent>(RootComponent->GetChildComponent(0));
+	//UE_LOG(LogTemp, Warning, TEXT("reference Component name : %s"), *(mRefComponent->GetD()));
 }
 
 void AAndroid::Tick(float DeltaTime) {
@@ -119,17 +117,27 @@ void AAndroid::Tick(float DeltaTime) {
 	for (int j = 0; j < NumBodyinstances; j++) {
 		FName b_name = BodyInstanceNames[j];
 		FTransform bt = GetAnimBoneTransformWithRoot(b_name, cur_time);
-		//SkeletalMesh->GetBodyInstance(b_name)->SetBodyTransform(bt, ETeleportType::ResetPhysics);
-		//SkeletalMesh->GetBodyInstance(b_name)->SetAngularVelocityInRadians(FVector::ZeroVector, false);
-		//SkeletalMesh->GetBodyInstance(b_name)->SetLinearVelocity(FVector::ZeroVector, false);
+		SkeletalMesh->GetBodyInstance(b_name)->SetBodyTransform(bt, ETeleportType::ResetPhysics);
+		SkeletalMesh->GetBodyInstance(b_name)->SetAngularVelocityInRadians(FVector::ZeroVector, false);
+		SkeletalMesh->GetBodyInstance(b_name)->SetLinearVelocity(FVector::ZeroVector, false);
 		bt.SetTranslation(bt.GetTranslation() + FVector(-100, 0.0, 0.0));
 		if (b_name == FName("pelvis")) {
 			UE_LOG(LogTemp, Warning, TEXT("pelvis translation : %f, %f, %f "), bt.GetTranslation().X, bt.GetTranslation().Y, bt.GetTranslation().Z);
 		}
-		referenceComponent->SetBoneTransformByName(b_name, bt, EBoneSpaces::WorldSpace);
+		mRefComponent->SetBoneTransformByName(b_name, bt, EBoneSpaces::WorldSpace);
+
+		if (b_name == FName("ball_l")) {
+			FVector trans = bt.GetTranslation();
+			FVector skel_get = SkeletalMesh->GetBodyInstance(b_name)->GetUnrealWorldTransform().GetTranslation();
+			FVector ref_get = mRefComponent->GetBoneTransform(mRefComponent->GetBoneIndex(b_name)).GetTranslation();
+			UE_LOG(LogTemp, Warning, TEXT("skel set : (%f, %f, %f)"), trans[0] + 100, trans[1], trans[2]);
+			UE_LOG(LogTemp, Warning, TEXT("skel get : (%f, %f, %f)"), skel_get[0], skel_get[1], skel_get[2]);
+
+			UE_LOG(LogTemp, Warning, TEXT("ref  set : (%f, %f, %f)"), trans[0], trans[1], trans[2]);
+			UE_LOG(LogTemp, Warning, TEXT("ref  get : (%f, %f, %f)"), ref_get[0], ref_get[1], ref_get[2]);
+		}
 
 	}
-	*/
 	// debug angular velocities
 	UE_LOG(LogTemp, Warning, TEXT("======================================"));
 	for (int i = 0; i < ModifiedNumBones; i++) {
@@ -145,6 +153,7 @@ void AAndroid::Tick(float DeltaTime) {
 			diff
 		);
 	}
+	*/
 	
 }
 
@@ -282,21 +291,37 @@ void AAndroid::applyTorqueByName(FName b_name, FName b_p_name, double p_gain, do
 		- b_transform_cur.GetRotation().Inverse().RotateVector(desired_vel)
 	);
 
+	if (b_name == FName("ball_l") || b_name == FName("ball_r") || b_name == FName("hand_l") || b_name == FName("hand_r")) {
+		p_gain *= 0.5;
+		d_gain *= 0.5;
+	}
+	else if ( b_name == FName("head")) {
+		p_gain *= 1;
+		d_gain *= 1;
+	}
+	else if (b_name == FName("lowerarm_l") || b_name == FName("lowerarm_r") || b_name == FName("foot_l") || b_name == FName("foot_r") || b_name == FName("neck_01")) {
+		p_gain *= 2;
+		d_gain *= 2;
+	}
+	else if (b_name == FName("calf_l") || b_name == FName("calf_r") || b_name == FName("upperarm_l") || b_name == FName("upperarm_r")) {
+		p_gain *= 3;
+		d_gain *= 3;
+	}
+	else if (b_name == FName("spine_01") || b_name == FName("spine_02") || b_name == FName("thigh_l") || b_name == FName("thigh_r")) {
+		p_gain *= 4;
+		d_gain *= 4;
+	}
+	else {
+		UE_LOG(LogTemp, Error, TEXT("Unspeicified bone name!"));
+	}
+
 	FVector torque = -1.0 * (delta*p_gain + d_delta*d_gain);
 
 	torques[b_p_name] -= torque;
 	torques[b_name] += torque;
 
-	/*
-	if (b_name == FName("spine_01") || b_name == FName("spine_02") || b_name == FName("thigh_l") || b_name == FName("thigh_r")) {
-		p_gain *= 4;
-		d_gain *= 4;
-	}
-	if (b_name == FName("calf_l") || b_name == FName("calf_r")) {
-		p_gain *= 2;
-		d_gain *= 2;
-	}
-	*/
+
+	
 }
 
 
@@ -320,8 +345,8 @@ void AAndroid::ResetAgent(float reset_time) {
 void AAndroid::ApplyTorques(double DeltaTime) {
 	// UE_LOG(LogHolodeck, Warning, TEXT("AAndroid::ApplyTorques, delta time : %f"), DeltaTime);
 	int ComInd = 0;
-	double p_gain = 5000000;// 20000000;
-	double d_gain = 50000;// 10000;
+	double p_gain = 2000000;// 20000000;
+	double d_gain = 1000;// 10000;
 
 
 	torques.Reset();
