@@ -18,7 +18,7 @@ void UCustomSensor::InitializeSensor() {
 
 	this->NumJoints = 18;
 	this->NumEEs = 5;
-	this->StateSize = this->NumJoints * 3 + this->NumEEs * 3 + this->NumEEs * 3;
+	this->StateSize = this->NumJoints * 3 + this->NumJoints * 3 + this->NumEEs * 3 + this->NumEEs * 3 + 1;
 
 	this->RewardSize = 5;
 	this->EOESize = 2;
@@ -52,6 +52,13 @@ void UCustomSensor::TickSensorComponent(float DeltaTime, ELevelTick TickType, FA
 	this->GetState();
 	this->GetReward();
 	this->GetEOE();
+	/*
+	float* FloatBuffer = static_cast<float*>(Buffer);
+	UE_LOG(LogTemp, Warning, TEXT("================================================"));
+	for (int i = 0; i < this->TotalSize; i++) {
+		UE_LOG(LogTemp, Warning, TEXT("%f"), FloatBuffer[i]);
+	}
+	*/
 }
 
 void UCustomSensor::GetState() {
@@ -66,6 +73,16 @@ void UCustomSensor::GetState() {
 		FloatBuffer[index+2] = angle[2];
 		index += 3;
 	}
+	// joint velocities
+	for (int i = 0; i < this->NumJoints; i++) {
+		FName b_name = AAndroid::ModifiedBoneLists[i];
+		FVector av = this->Parent->getJointAngularVelocity(b_name, false);
+		FloatBuffer[index] = av[0];
+		FloatBuffer[index + 1] = av[1];
+		FloatBuffer[index + 2] = av[2];
+		index += 3;
+	}
+
 	// ee positions
 	FTransform root_transform = this->SkeletalMeshComponent->GetBodyInstance(FName("pelvis"))->GetUnrealWorldTransform();
 	for (int i = 0; i < this->NumEEs; i++) {
@@ -89,6 +106,11 @@ void UCustomSensor::GetState() {
 		FloatBuffer[index + 2] = translation[2];
 		index += 3;
 	}
+
+	// root height
+	float root_height = root_transform.GetTranslation()[2] / 100.;
+	FloatBuffer[index] = root_height;
+	index++;
 }
 
 void UCustomSensor::GetReward() {
@@ -97,8 +119,8 @@ void UCustomSensor::GetReward() {
 	float w_com = 0.3;
 	float w_ee = 0.25;
 
-	float sig_p = 0.5;
-	float sig_v = 1.0;
+	float sig_p = 0.25;
+	float sig_v = 5.0;
 	float sig_com = 0.2;
 	float sig_ee = 0.2;
 
@@ -115,19 +137,25 @@ void UCustomSensor::GetReward() {
 
 	// v reward
 
-	// UE_LOG(LogTemp, Warning, TEXT("=========================="));
 	float rew_v = 0;
+	//UE_LOG(LogTemp, Warning, TEXT("======================================"));
 	for (int i = 0; i < this->NumJoints; i++) {
 		FName b_name = AAndroid::ModifiedBoneLists[i];
 		if (b_name == FName("ball_l") || b_name == FName("ball_r")) {
 			continue;
 		}
-		FVector av = this->Parent->getJointAngularVelocity(b_name);
-		FVector target_av = this->Parent->getReferenceJointAngularVelocity(b_name);
+		FVector av = this->Parent->getJointAngularVelocity(b_name, false);
+		FVector target_av = this->Parent->getReferenceJointAngularVelocity(b_name, false);
 		rew_v += (av - target_av).SizeSquared();
-		//UE_LOG(LogTemp, Warning, TEXT("name : %s"), *b_name.ToString());
-		//printVector(av);
-		//printVector(target_av);
+		float diff = (av - target_av).Size();
+		/*
+		UE_LOG(LogTemp, Warning, TEXT("name : %s : ref (%f, %f, %f), sim (%f, %f, %f) - diff : %f"),
+			*b_name.ToString(),
+			target_av[0], target_av[1], target_av[2],
+			av[0], av[1], av[2],
+			diff
+		);
+		*/
 
 	}
 	float rew_v_t = rew_v;
@@ -176,7 +204,7 @@ void UCustomSensor::GetEOE() {
 
 	float is_terminal = 0;
 	float is_nan = 0;
-	if (root_transform.GetTranslation()[2] < 90 || root_transform.GetTranslation()[2] > 140)
+	if (root_transform.GetTranslation()[2] < 95 || root_transform.GetTranslation()[2] > 150)
 		is_terminal = 1;
 	
 	if (root_transform.GetTranslation()[1] > 3000) {

@@ -178,7 +178,7 @@ class TrackingController:
         # self._env = holodeck.make("PPO")
         # self._env.should_render_viewport(False)
 
-        self._stateSize = 18 * 3 + 5 * 3 + 5 * 3
+        self._stateSize = 18 * 3 + 18 * 3 + 5 * 3 + 5 * 3 + 1
         self._rewardSize = 5
         self._eoeSize  = 2
         self._actionSize = 18 * 3

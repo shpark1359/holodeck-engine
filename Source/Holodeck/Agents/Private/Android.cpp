@@ -65,7 +65,7 @@ void AAndroid::InitializeAgent() {
 	}
 	is_animation_loaded = false;
 	animation_data.Reset();
-	for (int i = 0; i < 1010; i++) {
+	for (int i = 0; i < 1100; i++) {
 		TMap<FName, FTransform> animation_frame;
 		animation_frame.Reset();
 		for (int j = 0; j < NumBodyinstances; j++) {
@@ -187,7 +187,7 @@ FVector AAndroid::getReferenceJointAngle(FName b_name, float time) {
 	return QuatToRotationVector(b_p_transform.GetRotation().Inverse() * b_transform.GetRotation());
 
 }
-FVector AAndroid::getJointAngularVelocity(FName b_name) {
+FVector AAndroid::getJointAngularVelocity(FName b_name, bool isWorld=true) {
 	FName b_p_name = this->parents[b_name];
 	FVector pv(0, 0, 0);
 	FVector v(0, 0, 0);
@@ -198,15 +198,20 @@ FVector AAndroid::getJointAngularVelocity(FName b_name) {
 	if (SkeletalMesh->GetBodyInstance(b_name) != NULL) {
 		v = SkeletalMesh->GetBodyInstance(b_name)->GetUnrealWorldAngularVelocityInRadians();
 	}
-	return  v - pv;
+	FVector av = v - pv;
+	if (!isWorld) {
+		FQuat rot = SkeletalMesh->GetBodyInstance(b_name)->GetUnrealWorldTransform().GetRotation();
+		av = rot.Inverse().RotateVector(av);
+	}
+	return av;
 
 }
 
-FVector AAndroid::getReferenceJointAngularVelocity(FName b_name) {
-	return getReferenceJointAngularVelocity(b_name, cur_time);
+FVector AAndroid::getReferenceJointAngularVelocity(FName b_name, bool isWorld=true) {
+	return getReferenceJointAngularVelocity(b_name, cur_time, isWorld);
 }
 
-FVector AAndroid::getReferenceJointAngularVelocity(FName b_name, float time) {
+FVector AAndroid::getReferenceJointAngularVelocity(FName b_name, float time, bool isWorld=true) {
 	FName b_p_name = this->parents[b_name];
 	float vel_time_step = 0.01;
 	FTransform b_transform_cur = GetAnimBoneTransform(b_name, time);
@@ -215,8 +220,15 @@ FVector AAndroid::getReferenceJointAngularVelocity(FName b_name, float time) {
 	FTransform b_transform_prev = GetAnimBoneTransform(b_name, time - vel_time_step);
 	FTransform b_p_transform_prev = GetAnimBoneTransform(b_p_name, time - vel_time_step);
 
-	return (QuatToRotationVector(b_transform_cur.GetRotation()*b_transform_prev.GetRotation().Inverse())
+	FVector av = (QuatToRotationVector(b_transform_cur.GetRotation()*b_transform_prev.GetRotation().Inverse())
 		- QuatToRotationVector(b_p_transform_cur.GetRotation()*b_p_transform_prev.GetRotation().Inverse())) / vel_time_step;
+
+	if (!isWorld) {
+		FQuat rot = b_transform_cur.GetRotation();
+		av = rot.Inverse().RotateVector(av);
+	}
+
+	return av;
 
 
 }
@@ -292,24 +304,32 @@ void AAndroid::applyTorqueByName(FName b_name, FName b_p_name, double p_gain, do
 	);
 
 	if (b_name == FName("ball_l") || b_name == FName("ball_r") || b_name == FName("hand_l") || b_name == FName("hand_r")) {
-		p_gain *= 0.5;
-		d_gain *= 0.5;
+		p_gain *= 0.2;
+		d_gain *= 0.2;
 	}
 	else if ( b_name == FName("head")) {
 		p_gain *= 1;
 		d_gain *= 1;
 	}
-	else if (b_name == FName("lowerarm_l") || b_name == FName("lowerarm_r") || b_name == FName("foot_l") || b_name == FName("foot_r") || b_name == FName("neck_01")) {
-		p_gain *= 2;
-		d_gain *= 2;
+	else if (b_name == FName("foot_l") || b_name == FName("foot_r")) {
+		p_gain *= 0.5;
+		d_gain *= 0.5;
+	}
+	else if (b_name == FName("lowerarm_l") || b_name == FName("lowerarm_r") || b_name == FName("neck_01")) {
+		p_gain *= 1;
+		d_gain *= 1;
 	}
 	else if (b_name == FName("calf_l") || b_name == FName("calf_r") || b_name == FName("upperarm_l") || b_name == FName("upperarm_r")) {
 		p_gain *= 3;
 		d_gain *= 3;
 	}
-	else if (b_name == FName("spine_01") || b_name == FName("spine_02") || b_name == FName("thigh_l") || b_name == FName("thigh_r")) {
+	else if (b_name == FName("thigh_l") || b_name == FName("thigh_r")) {
 		p_gain *= 4;
 		d_gain *= 4;
+	}
+	else if (b_name == FName("spine_01") || b_name == FName("spine_02")) {
+		p_gain *= 8;
+		d_gain *= 8;
 	}
 	else {
 		UE_LOG(LogTemp, Error, TEXT("Unspeicified bone name!"));
@@ -345,8 +365,8 @@ void AAndroid::ResetAgent(float reset_time) {
 void AAndroid::ApplyTorques(double DeltaTime) {
 	// UE_LOG(LogHolodeck, Warning, TEXT("AAndroid::ApplyTorques, delta time : %f"), DeltaTime);
 	int ComInd = 0;
-	double p_gain = 2000000;// 20000000;
-	double d_gain = 1000;// 10000;
+	double p_gain = 3000000;// 20000000;
+	double d_gain = 15000;// 10000;
 
 
 	torques.Reset();

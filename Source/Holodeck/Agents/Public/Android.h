@@ -108,9 +108,9 @@ public:
 	FVector getReferenceJointAngle(FName b_name);
 	FVector getReferenceJointAngle(FName b_name, float time);
 
-	FVector getJointAngularVelocity(FName b_name);
-	FVector getReferenceJointAngularVelocity(FName b_name, float time);
-	FVector getReferenceJointAngularVelocity(FName b_name);
+	FVector getJointAngularVelocity(FName b_name, bool isWorld);
+	FVector getReferenceJointAngularVelocity(FName b_name, float time, bool isWorld);
+	FVector getReferenceJointAngularVelocity(FName b_name, bool isWorld);
 
 	float CommandArray[TOTAL_DOF];
 
