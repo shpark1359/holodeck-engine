@@ -100,9 +100,9 @@ public:
 	* corresponding to the values in the command array
 	*/
 	void ResetAgent(float time);
-	void ApplyTorques(double DeltaTime);
+	void ApplyTorques(float target_time);
 
-	void applyTorqueByName(FName b_name, FName b_p_name, double p_gain, double d_gain, FVector action);
+	void applyTorqueByName(FName b_name, FName b_p_name, float target_time, double p_gain, double d_gain, FVector action);
 	FVector getJointAngle(FName b_name);
 	FVector getReferenceJointAngleNext(FName b_name);
 	FVector getReferenceJointAngle(FName b_name);
@@ -129,6 +129,7 @@ public:
 	float time_step;
 	int character_index;
 	int step_count;
+	float total_time = 0;
 	UPoseableMeshComponent* mRefComponent;
 	FVector root_offset;
 

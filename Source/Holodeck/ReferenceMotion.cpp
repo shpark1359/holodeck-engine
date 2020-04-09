@@ -31,7 +31,7 @@ AReferenceMotion::AReferenceMotion()
 void AReferenceMotion::BeginPlay()
 {
 	Super::BeginPlay();
-	root_offset = FVector(-150, 0.0, 28);
+	root_offset = FVector(-100, 0.0, 50);
 	SkeletalMesh = Cast<USkeletalMeshComponent>(GetRootComponent());
 	is_animation_loaded = false;
 	animation_data.Reset();
