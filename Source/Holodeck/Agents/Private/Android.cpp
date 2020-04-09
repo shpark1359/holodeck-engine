@@ -365,8 +365,8 @@ void AAndroid::ResetAgent(float reset_time) {
 void AAndroid::ApplyTorques(double DeltaTime) {
 	// UE_LOG(LogHolodeck, Warning, TEXT("AAndroid::ApplyTorques, delta time : %f"), DeltaTime);
 	int ComInd = 0;
-	double p_gain = 3000000;// 20000000;
-	double d_gain = 15000;// 10000;
+	double p_gain = 5000000;// 20000000;
+	double d_gain = 50000;// 10000;
 
 
 	torques.Reset();
