@@ -104,13 +104,13 @@ void AAndroid::Tick(float DeltaTime) {
 	}
 	else {
 		total_time += DeltaTime;
-		cur_time = 0.1;
-		ApplyTorques(cur_time);
+		//cur_time = 0.1;
+		ApplyTorques(0.1);
 		step_count++;
 		UKismetSystemLibrary::PrintString(GetWorld(), FString::SanitizeFloat(total_time), true, false, FLinearColor(0.0, 0.7, 1.0), 0.01f);
 		if (step_count == 20) {
 			step_count = 0;
-			//cur_time += this->time_step;
+			cur_time += this->time_step;
 		}
 
 		auto bi = SkeletalMesh->GetBodyInstance(FName("pelvis"));
@@ -284,6 +284,13 @@ void AAndroid::applyTorqueByName(FName b_name, FName b_p_name, float target_time
 	FTransform b_p_transform_target = GetAnimBoneTransform(b_p_name, target_time);
 	FQuat delta_target(b_p_transform_target.GetRotation().Inverse()*b_transform_target.GetRotation());
 
+	if (b_name == FName("upperarm_l")) {
+		FVector offset_axis = FVector(0, 1, 0);
+		float offset_angle = -0.4*PI;
+		FQuat offset_rotation(offset_axis, offset_angle);
+		delta_target = delta_target * offset_rotation;
+	}
+
 	FTransform b_transform = SkeletalMesh->GetBodyInstance(b_name)->GetUnrealWorldTransform();
 	FTransform b_p_transform = SkeletalMesh->GetBodyInstance(b_p_name)->GetUnrealWorldTransform();
 	FQuat delta_cur(b_p_transform.GetRotation().Inverse()*b_transform.GetRotation());
@@ -321,31 +328,31 @@ void AAndroid::applyTorqueByName(FName b_name, FName b_p_name, float target_time
 	
 	if (b_name == FName("ball_l") || b_name == FName("ball_r") || b_name == FName("hand_l") || b_name == FName("hand_r")) {
 		p_gain *= 0.2;
-		d_gain *= 0.2;
+		d_gain *= std::sqrt(0.2);
 	}
 	else if (b_name == FName("head")) {
 		p_gain *= 1;
-		d_gain *= 1;
+		d_gain *= std::sqrt(1);
 	}
 	else if (b_name == FName("foot_l") || b_name == FName("foot_r")) {
 		p_gain *= 0.5;
-		d_gain *= 0.5;
+		d_gain *= std::sqrt(0.5);
 	}
 	else if (b_name == FName("lowerarm_l") || b_name == FName("lowerarm_r") || b_name == FName("neck_01")) {
-		p_gain *= 1;
-		d_gain *= 1;
+		p_gain *= 5;
+		d_gain *= std::sqrt(5);
 	}
 	else if (b_name == FName("calf_l") || b_name == FName("calf_r") || b_name == FName("upperarm_l") || b_name == FName("upperarm_r")) {
-		p_gain *= 3;
-		d_gain *= 3;
+		p_gain *= 10;
+		d_gain *= std::sqrt(10);
 	}
 	else if (b_name == FName("thigh_l") || b_name == FName("thigh_r")) {
-		p_gain *= 8;
-		d_gain *= 8;
+		p_gain *= 10;
+		d_gain *= std::sqrt(10);
 	}
 	else if (b_name == FName("spine_01") || b_name == FName("spine_02")) {
-		p_gain *= 10;
-		d_gain *= 10;
+		p_gain *= 50;
+		d_gain *= std::sqrt(50);
 	}
 	else {
 		UE_LOG(LogTemp, Error, TEXT("Unspeicified bone name!"));
@@ -385,8 +392,8 @@ void AAndroid::ResetAgent(float reset_time) {
 void AAndroid::ApplyTorques(float target_time) {
 	// UE_LOG(LogHolodeck, Warning, TEXT("AAndroid::ApplyTorques, delta time : %f"), DeltaTime);
 	int ComInd = 0;
-	double p_gain = 2000000;// 20000000;
-	double d_gain = 10000;// 10000;
+	float p_gain = 2000000.;// 20000000;
+	float d_gain = 2*std::sqrt(p_gain);// 10000;
 
 
 	torques.Reset();

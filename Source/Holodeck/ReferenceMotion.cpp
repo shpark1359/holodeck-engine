@@ -55,7 +55,7 @@ void AReferenceMotion::Tick(float DeltaTime)
 
 	for (int j = 0; j < NumBodyinstances; j++) {
 		FName b_name = BodyInstanceNames[j];
-		FTransform bt = GetAnimBoneTransformWithRoot(b_name, cur_time);
+		FTransform bt = GetAnimBoneTransformWithRoot(b_name, 0.1);
 		SkeletalMesh->GetBodyInstance(b_name)->SetBodyTransform(bt, ETeleportType::ResetPhysics);
 		SkeletalMesh->GetBodyInstance(b_name)->SetAngularVelocityInRadians(FVector::ZeroVector, false);
 		SkeletalMesh->GetBodyInstance(b_name)->SetLinearVelocity(FVector::ZeroVector, false);
